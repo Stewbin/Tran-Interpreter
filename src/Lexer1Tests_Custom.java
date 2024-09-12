@@ -1,7 +1,7 @@
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-public class Custom_Lexer1Tests {
+public class Lexer1Tests_Custom {
 
     @Test
     public void singleWordTest() throws Exception {
@@ -101,21 +101,11 @@ public class Custom_Lexer1Tests {
     }
     
 
-
-    // Actually testing Tran snippets
     @Test
-    public void IndentTest() {
-        var l = new Lexer(
-                "loop keepGoing\n" +
-                        "    if n >= 15\n" +
-                        "        keepGoing = false\n"
-        );
-        try {
-            var res = l.Lex();
-            Assertions.assertEquals(16, res.size());
-        } catch (Exception e) {
-            Assertions.fail("exception occurred: " + e.getMessage());
-        }
+    public void singleNewLineCharTest() throws Exception {
+        var l = new Lexer("\n");
+        var res = l.Lex();
+
     }
 
 

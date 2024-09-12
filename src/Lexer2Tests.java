@@ -44,4 +44,20 @@ public class Lexer2Tests {
             Assertions.fail("exception occurred: " +  e.getMessage());
         }
     }
+
+
+    @Test
+    public void IndentTest() {
+        var l = new Lexer(
+                "loop keepGoing\n" +
+                        "    if n >= 15\n" +
+                        "        keepGoing = false\n"
+        );
+        try {
+            var res = l.Lex();
+            Assertions.assertEquals(16, res.size());
+        } catch (Exception e) {
+            Assertions.fail("exception occurred: " + e.getMessage());
+        }
+    }
 }

@@ -3,7 +3,7 @@ import java.util.LinkedList;
 import java.util.List;
 
 public class Lexer {
-    private TextManager textManager;
+    private final TextManager textManager;
     private final HashMap<String, Token.TokenTypes> keywords;
     private final HashMap<String, Token.TokenTypes> punctuation;
     private int lineNumber, characterPosition;
@@ -13,12 +13,30 @@ public class Lexer {
 
         // Fill keywords table
         this.keywords = new HashMap<>(4);
+        keywords.put("accessor", Token.TokenTypes.ACCESSOR);
+        keywords.put("mutator", Token.TokenTypes.MUTATOR);
+        keywords.put("implements", Token.TokenTypes.IMPLEMENTS);
+        keywords.put("class", Token.TokenTypes.CLASS);
+        keywords.put("interface", Token.TokenTypes.INTERFACE);
+        keywords.put("loop", Token.TokenTypes.LOOP);
         keywords.put("if", Token.TokenTypes.IF);
         keywords.put("else", Token.TokenTypes.ELSE);
 
         // Fill punctuation table
         punctuation = new HashMap<>();
         punctuation.put("=", Token.TokenTypes.ASSIGN);
+        punctuation.put("(", Token.TokenTypes.LPAREN);
+        punctuation.put(")", Token.TokenTypes.RPAREN);
+        punctuation.put(":", Token.TokenTypes.COLON);
+        punctuation.put(".", Token.TokenTypes.DOT);
+        // Operations
+        punctuation.put("+", Token.TokenTypes.PLUS);
+        punctuation.put("-", Token.TokenTypes.MINUS);
+        punctuation.put("*", Token.TokenTypes.TIMES);
+        punctuation.put("/", Token.TokenTypes.DIVIDE);
+        punctuation.put("%", Token.TokenTypes.MODULO);
+        punctuation.put(",", Token.TokenTypes.COMMA);
+        // Truth
         punctuation.put("==", Token.TokenTypes.EQUAL);
         punctuation.put("<", Token.TokenTypes.LESSTHAN);
         punctuation.put(">", Token.TokenTypes.GREATERTHAN);
@@ -31,7 +49,7 @@ public class Lexer {
 
         Token t = null;
         while (!textManager.isAtEnd()) {
-            char x = textManager.peekCharacter(0);
+            char x = textManager.peekCharacter();
             if (Character.isLetter(x)) {
                 t = parseWord();
             } else if (Character.isDigit(x)) {
@@ -46,110 +64,96 @@ public class Lexer {
                 char nextPeek = textManager.peekCharacter(1); // char after the '.'
                 if (Character.isDigit(nextPeek)) {
                     t = parseNumber();
-                } else {
-                    // TODO: Handle method calls
                 }
             } else {
-//                t = parsePunctuation();
+                t = parsePunctuation();
             }
-            retVal.add(t);
+
+            if (null != t) {
+                retVal.add(t);
+            }
         }
 
         return retVal;
     }
 
     private Token parseWord() {
-        char c = textManager.getCharacter();
+        char c = lexerGetCharacter();
         StringBuilder currentWord = new StringBuilder();
 
-        // Get next character until first non-letter
-        // e.g. whitespace
         while (Character.isLetter(c) || '_' == c) {
             currentWord.append(c);
-
+            // Check if at end before get next char
             if (textManager.isAtEnd()) break;
-
-            c = textManager.getCharacter();
+            c = lexerGetCharacter();
         }
 
         if (!currentWord.isEmpty()) {
             // Create token from currentWord
             String curWord = currentWord.toString();
-            if (keywords.containsKey(curWord)) {
-                return new Token(keywords.get(curWord), lineNumber, characterPosition, curWord);
-            } else {
-                return new Token(Token.TokenTypes.WORD, lineNumber, characterPosition, curWord);
-            }
+            return new Token(keywords.getOrDefault(curWord, Token.TokenTypes.WORD), lineNumber, characterPosition, curWord);
         } else {
             return null;
         }
     }
 
-    private Token parseNumber() throws Exception {
+    private Token parseNumber() throws SyntaxErrorException {
         boolean seenDecimal = false;
 
-        char c = textManager.getCharacter();
+        char c = textManager.peekCharacter();
         StringBuilder currentWord = new StringBuilder();
 
         // TODO: Handle negative numbers
-        while ( Character.isDigit(c) || '.' == c || '-' == c) {
+        while ( Character.isDigit(c) || '.' == c) {
             currentWord.append(c);
 
             if (textManager.isAtEnd()) break;
 
-            // Handle 3.4.5 exception
             if (seenDecimal && '.' == c) {
-                throw new SyntaxErrorException(
-                        String.format("Invalid number %s", currentWord.append(c)),
-                        lineNumber,
-                        characterPosition
-                );
+                // Handle 3.4.5 exception
+//                throw new SyntaxErrorException(
+//                        String.format("Invalid number %s", currentWord.append(c)),
+//                        lineNumber,
+//                        characterPosition
+//                );
+                break;
             }
             if ('.' == c) {
                 seenDecimal = true;
             }
 
-            c = textManager.getCharacter();
-            if ('-' == c) {
-                throw new SyntaxErrorException(
-                        "Invalid number " + currentWord.append(c),
-                        lineNumber,
-                        characterPosition
-                );
-            }
+            c = lexerGetCharacter();
         }
 
         if (!currentWord.isEmpty()) {
-            if (currentWord.length() >= 2) {
-                // Remove negative zero
-                if (currentWord.substring(0, 2).equals("-0")) {
-                    currentWord.delete(0,2);
-                }
-                // Remove leading zeroes
-                while (currentWord.charAt(0) == '0') {
-                    currentWord.deleteCharAt(0);
-                }
-            }
-
             return new Token(Token.TokenTypes.NUMBER, lineNumber, characterPosition, currentWord.toString());
         } else {
             return null;
         }
     }
 
-    int maxPunctuationLength = 2;
     private Token parsePunctuation() throws SyntaxErrorException {
-        String bigOperator = "" + (textManager.getCharacter() + textManager.peekCharacter(maxPunctuationLength - 1));
-        if (keywords.containsKey(bigOperator)) {
-            return new Token(keywords.get(bigOperator), lineNumber, characterPosition);
+        String smallOperator = "" + lexerGetCharacter();
+        String bigOperator = smallOperator + textManager.peekCharacter();
+        if (punctuation.containsKey(bigOperator)) {
+            lexerGetCharacter();
+            return new Token(punctuation.get(bigOperator), lineNumber, characterPosition);
+        } else if (punctuation.containsKey(smallOperator)) {
+            return new Token(punctuation.get(smallOperator), lineNumber, characterPosition);
         } else {
-            String smallOperator = "" + (textManager.getCharacter());
-            if (keywords.containsKey(smallOperator)) {
-                return new Token(keywords.get(smallOperator), lineNumber, characterPosition);
-            } else {
-                throw new SyntaxErrorException("Invalid punctuation " + bigOperator, lineNumber, characterPosition);
-            }
+            return null;
         }
     }
 
+    // getCharacter(), but it tracks line and col #
+    private char lexerGetCharacter() {
+        char c = textManager.getCharacter();
+        characterPosition++;
+        if ('\n' == c) {
+            lineNumber++;
+            characterPosition = 0;
+        }
+        return c;
+    }
+    // EOC
 }
