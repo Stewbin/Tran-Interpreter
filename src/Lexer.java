@@ -24,6 +24,7 @@ public class Lexer {
 
         // Fill punctuation table
         punctuation = new HashMap<>();
+        // Line 1 (whatever this is)
         punctuation.put("=", Token.TokenTypes.ASSIGN);
         punctuation.put("(", Token.TokenTypes.LPAREN);
         punctuation.put(")", Token.TokenTypes.RPAREN);
@@ -38,10 +39,14 @@ public class Lexer {
         punctuation.put(",", Token.TokenTypes.COMMA);
         // Truth
         punctuation.put("==", Token.TokenTypes.EQUAL);
+        punctuation.put("!=", Token.TokenTypes.NOTEQUAL);
         punctuation.put("<", Token.TokenTypes.LESSTHAN);
         punctuation.put(">", Token.TokenTypes.GREATERTHAN);
         punctuation.put("<=", Token.TokenTypes.LESSTHANEQUAL);
         punctuation.put(">=", Token.TokenTypes.GREATERTHANEQUAL);
+        // Spaces
+        punctuation.put("\t", Token.TokenTypes.INDENT);
+        punctuation.put("\n", Token.TokenTypes.NEWLINE);
     }
 
     public List<Token> Lex() throws Exception {
@@ -50,27 +55,27 @@ public class Lexer {
         Token t = null;
         while (!textManager.isAtEnd()) {
             char x = textManager.peekCharacter();
-            if (Character.isLetter(x)) {
+            if (x == ' ') { // Ignore all whitespace for now
+                lexerGetCharacter(); // Increment position
+                continue;
+            } else if (Character.isLetter(x)) {
                 t = parseWord();
             } else if (Character.isDigit(x)) {
                 t = parseNumber();
-            } else if (x == '-') {
-                if (Character.isDigit(textManager.peekCharacter(1))) {
-                    t = parseNumber();
-                } else {
-                    throw new SyntaxErrorException("", lineNumber, characterPosition);
-                }
             } else if (x == '.') {
-                char nextPeek = textManager.peekCharacter(1); // char after the '.'
+                char nextPeek = textManager.peekCharacter(1);
                 if (Character.isDigit(nextPeek)) {
                     t = parseNumber();
+                } else {
+                    t = parsePunctuation();
                 }
             } else {
-                t = parsePunctuation();
+                    t = parsePunctuation();
             }
 
             if (null != t) {
                 retVal.add(t);
+                t = null; // Reset token, to be safe
             }
         }
 
@@ -78,14 +83,14 @@ public class Lexer {
     }
 
     private Token parseWord() {
-        char c = lexerGetCharacter();
+        char c = textManager.peekCharacter();
         StringBuilder currentWord = new StringBuilder();
 
-        while (Character.isLetter(c) || '_' == c) {
-            currentWord.append(c);
+        while (Character.isLetter(c)) {
+            currentWord.append(lexerGetCharacter());
             // Check if at end before get next char
             if (textManager.isAtEnd()) break;
-            c = lexerGetCharacter();
+            c = textManager.peekCharacter();
         }
 
         if (!currentWord.isEmpty()) {
@@ -105,7 +110,7 @@ public class Lexer {
 
         // TODO: Handle negative numbers
         while ( Character.isDigit(c) || '.' == c) {
-            currentWord.append(c);
+            currentWord.append(lexerGetCharacter());
 
             if (textManager.isAtEnd()) break;
 
@@ -122,7 +127,7 @@ public class Lexer {
                 seenDecimal = true;
             }
 
-            c = lexerGetCharacter();
+            c = textManager.peekCharacter();
         }
 
         if (!currentWord.isEmpty()) {
@@ -134,7 +139,8 @@ public class Lexer {
 
     private Token parsePunctuation() throws SyntaxErrorException {
         String smallOperator = "" + lexerGetCharacter();
-        String bigOperator = smallOperator + textManager.peekCharacter();
+        // Check if at end before peeking
+        String bigOperator = textManager.isAtEnd() ? "" : smallOperator + textManager.peekCharacter();
         if (punctuation.containsKey(bigOperator)) {
             lexerGetCharacter();
             return new Token(punctuation.get(bigOperator), lineNumber, characterPosition);
@@ -145,7 +151,7 @@ public class Lexer {
         }
     }
 
-    // getCharacter(), but it tracks line and col #
+    // TextManager.getCharacter(), but it tracks line and col #
     private char lexerGetCharacter() {
         char c = textManager.getCharacter();
         characterPosition++;

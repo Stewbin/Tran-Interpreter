@@ -15,10 +15,14 @@ public class TextManager {
     }
 
     public char peekCharacter(int ahead) {
-        return text.charAt(position + ahead);
+        char c = ' ';
+        if (position + ahead < text.length()) { // Check for end before peeking
+            c = text.charAt(position + ahead);
+        }
+        return c;
     }
 
     public char peekCharacter() {
-        return text.charAt(position);
+        return peekCharacter(0);
     }
 }
