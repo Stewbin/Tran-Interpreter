@@ -27,16 +27,21 @@ public class CustomLexer1Tests {
     public void multilineStringTest() throws Exception {
         String text = "This is a line. \n This is another line.";
         Lexer lexer = new Lexer(text);
+        var res = lexer.Lex();
 
-        String[] test = lexer.Lex().stream().map(Token::getValue).toArray(String[]::new);
-        String[] correct = {"This", "is", "a", "line", ".", "This", "is", "another", "line", "."};
+        Assertions.assertEquals("This", res.get(0).getValue());
+        Assertions.assertEquals("is", res.get(1).getValue());
+        Assertions.assertEquals("a", res.get(2).getValue());
+        Assertions.assertEquals("line", res.get(3).getValue());
+        Assertions.assertEquals(Token.TokenTypes.DOT, res.get(4).getType());
+        Assertions.assertEquals(Token.TokenTypes.NEWLINE, res.get(5).getType());
+        Assertions.assertEquals("This", res.get(6).getValue());
+        Assertions.assertEquals("is", res.get(7).getValue());
+        Assertions.assertEquals("another", res.get(8).getValue());
+        Assertions.assertEquals("line", res.get(9).getValue());
+        Assertions.assertEquals(Token.TokenTypes.DOT, res.get(10).getType());
 
-        for (int i = 0; i < test.length; i++) {
-            System.out.println("Test: " + test[i]);
-            System.out.println("Correct: " + correct[i]);
-        }
-
-        Assertions.assertArrayEquals(correct, test);
+//        Assertions.assertArrayEquals(correct, test);
     }
 
     @Test
@@ -73,12 +78,12 @@ public class CustomLexer1Tests {
     }
 
 //    @Test
-//    public void throwExceptionAtNotNumbersTest() {
-//        String txt =  "5.14.145 3.4.5";
-//        Lexer lexer = new Lexer(txt);
-//
-//        Assertions.assertThrows(Exception.class, lexer::Lex);
-//    }
+    public void throwExceptionAtNotNumbersTest() {
+        String txt =  "5.14.145 3.4.5";
+        Lexer lexer = new Lexer(txt);
+
+        Assertions.assertThrows(Exception.class, lexer::Lex);
+    }
 
 //    @Test
     public void reformatSavableNumbersTest() throws Exception {
@@ -95,13 +100,27 @@ public class CustomLexer1Tests {
     public void completeSentenceTest() throws Exception {
         String text = "I don't like green eggs and ham. I don't like them, Sam I am.";
         Lexer lexer = new Lexer(text);
+        var res = lexer.Lex();
 
-        String[] correct = makeTokens(text);
-        System.out.println("Correct:\n" + Arrays.toString(correct));
-        String[] test = lexer.Lex().stream().map(Token::getValue).toArray(String[]::new);
-        System.out.println("Test:\n" + Arrays.toString(test));
-
-        Assertions.assertArrayEquals(correct, test);
+        Assertions.assertEquals("I", res.get(0).getValue());
+        Assertions.assertEquals("don", res.get(1).getValue());
+        Assertions.assertEquals("t", res.get(2).getValue());
+        Assertions.assertEquals("like", res.get(3).getValue());
+        Assertions.assertEquals("green", res.get(4).getValue());
+        Assertions.assertEquals("eggs", res.get(5).getValue());
+        Assertions.assertEquals("and", res.get(6).getValue());
+        Assertions.assertEquals("ham", res.get(7).getValue());
+        Assertions.assertEquals(Token.TokenTypes.DOT, res.get(8).getType());
+        Assertions.assertEquals("I", res.get(9).getValue());
+        Assertions.assertEquals("don", res.get(10).getValue());
+        Assertions.assertEquals("t", res.get(11).getValue());
+        Assertions.assertEquals("like", res.get(12).getValue());
+        Assertions.assertEquals("them", res.get(13).getValue());
+        Assertions.assertEquals(Token.TokenTypes.COMMA, res.get(14).getType());
+        Assertions.assertEquals("Sam", res.get(15).getValue());
+        Assertions.assertEquals("I", res.get(16).getValue());
+        Assertions.assertEquals("am", res.get(17).getValue());
+        Assertions.assertEquals(Token.TokenTypes.DOT, res.get(18).getType());
     }
     
 
@@ -123,13 +142,15 @@ public class CustomLexer1Tests {
         Assertions.assertEquals("awdwd", res.get(2).getValue());
     }
 
+    // DOESN'T WORK DOESN'T WORK
+    // not supposed to represent '.' as a string!
     private String[] makeTokens(String txt) {
         Matcher matcher = Pattern.compile("\\d*\\.\\d+|\\w+|\\.").matcher(txt);
 
         return matcher.results().map(MatchResult::group).toArray(String[]::new);
     }
 
-    @Test
+
     public void testMakeTokens() {
         String txt = "Tokens tokens . 123 moar TOKENS 0.1134 .";
         String[] actual = makeTokens(txt);
