@@ -1,5 +1,5 @@
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Assertions;
 
 import java.util.Arrays;
 import java.util.regex.*;
@@ -85,16 +85,6 @@ public class CustomLexer1Tests {
         Assertions.assertThrows(Exception.class, lexer::Lex);
     }
 
-//    @Test
-    public void reformatSavableNumbersTest() throws Exception {
-        String txt =  "-0 00 0123 -0124";
-        Lexer lexer = new Lexer(txt);
-
-        String[] correct = {"0", "0", "123", "-124"};
-        String[] test = lexer.Lex().stream().map(Token::getValue).toArray(String[]::new);
-
-        Assertions.assertArrayEquals(correct, test);
-    }
 
     @Test
     public void completeSentenceTest() throws Exception {
@@ -140,23 +130,6 @@ public class CustomLexer1Tests {
         Assertions.assertEquals("awd", res.get(0).getValue());
         Assertions.assertEquals( Token.TokenTypes.NEWLINE, res.get(1).getType());
         Assertions.assertEquals("awdwd", res.get(2).getValue());
-    }
-
-    // DOESN'T WORK DOESN'T WORK
-    // not supposed to represent '.' as a string!
-    private String[] makeTokens(String txt) {
-        Matcher matcher = Pattern.compile("\\d*\\.\\d+|\\w+|\\.").matcher(txt);
-
-        return matcher.results().map(MatchResult::group).toArray(String[]::new);
-    }
-
-
-    public void testMakeTokens() {
-        String txt = "Tokens tokens . 123 moar TOKENS 0.1134 .";
-        String[] actual = makeTokens(txt);
-        String[] expected = {"Tokens", "tokens", ".", "123", "moar", "TOKENS", "0.1134", "."};
-
-        Assertions.assertArrayEquals(expected, actual);
     }
 
     private String[] arrangeLexerValues(String text) throws Exception {
