@@ -69,6 +69,9 @@ public class Lexer {
         Token t = null;
 
         while (!textManager.isAtEnd()) {
+            // Check indentation level
+            t = parseIndent(countIndents());
+
             char x = textManager.peekCharacter();
             if (Character.isLetter(x)) {
                 // Words & Keywords
@@ -94,8 +97,6 @@ public class Lexer {
             } else if ('{' == x) {
                 // Comments
                 parseComment();
-            } else if ('\t' == x || ' ' == x) {
-                t = parseIndent();
             } else {
                 t = parsePunctuation();
             }
@@ -150,8 +151,8 @@ public class Lexer {
 
             if (textManager.isAtEnd()) break;
 
+            // Handle 3.4.5 exception
             if (seenDecimal && '.' == c) {
-                // Handle 3.4.5 exception
 //                throw new SyntaxErrorException(
 //                        String.format("Invalid number %s", currentWord.append(c)),
 //                        lineNumber,
@@ -173,7 +174,7 @@ public class Lexer {
         }
     }
 
-    private Token parsePunctuation() throws SyntaxErrorException {
+    private Token parsePunctuation() {
         String smallOperator = "" + lexerGetCharacter();
         // Check if at end before peeking
         String bigOperator = textManager.isAtEnd() ? "" : smallOperator + textManager.peekCharacter();
@@ -247,25 +248,51 @@ public class Lexer {
 
     private int scopeIndentationLevel = 0;
 
-    private Token parseIndent() {
-        char c = lexerGetCharacter(); // c = '\t' or '\s'
-
-        final int SPACES_PER_INDENT = 4;
-        for (int i = 0; i < SPACES_PER_INDENT; i++) {
-            if (c != ' ') {
-                break;
-            }
-            c = lexerGetCharacter();
+    private Token parseIndent(int indentCount) {
+        // Indent or dedent according to scope
+        if (indentCount - scopeIndentationLevel > 0) {
+            scopeIndentationLevel++;
+            return new Token(Token.TokenTypes.INDENT, lineNumber, characterPosition);
+        } else if (indentCount - scopeIndentationLevel < 0) {
+            scopeIndentationLevel--;
+            return new Token(Token.TokenTypes.DEDENT, lineNumber, characterPosition);
         }
-
-        // int indentCount = 0;
-        // if c == \t or equivalent
-        // indentCount++;
-        // if indentCount - scopeIndentationLevel > 0
-        //      return new INDENT
-        // else if indentCount - scopeIndentationLevel < 0
-        //      return new DEDENT
         return null;
+    }
+
+    private int countIndents() {
+        final int SPACES_PER_INDENT = 4;
+        boolean isIndent = false;
+        int indentCount = 0;
+
+        // Parse a single indent
+        do {
+            char c = textManager.peekCharacter();
+
+            if ('\t' == c) { // Check if tab character
+                isIndent = true;
+                lexerGetCharacter(); // Increment position
+            } else if (' ' == c) { // Check if there are 4 spaces
+                isIndent = true;
+                for (int i = 0; i < SPACES_PER_INDENT; i++) {
+                    c = textManager.peekCharacter();
+                    if (textManager.isAtEnd() || c != ' ') {
+                        isIndent = false;
+                        break;
+                    }
+                    lexerGetCharacter(); // Increment position
+                }
+            }
+            else {
+                isIndent = false;
+            }
+
+            if (isIndent) {
+                indentCount++;
+            }
+        } while (isIndent);
+
+        return indentCount;
     }
 
     // EOC

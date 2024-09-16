@@ -17,7 +17,7 @@ public class TextManager {
     public char peekCharacter(int ahead) {
         // Check if peek-able before peeking
         int peekIndex = position + ahead;
-        return peekIndex < text.length() ? text.charAt(peekIndex) : ' ';
+        return peekIndex < text.length() ? text.charAt(peekIndex) : '~';
     }
 
     public char peekCharacter() {
