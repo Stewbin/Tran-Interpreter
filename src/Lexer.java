@@ -51,26 +51,27 @@ public class Lexer {
         punctuation.put("<=", Token.TokenTypes.LESSTHANEQUAL);
         punctuation.put(">=", Token.TokenTypes.GREATERTHANEQUAL);
         // Spaces
-        punctuation.put("\t", Token.TokenTypes.INDENT);
-        punctuation.put("    ", Token.TokenTypes.INDENT);
         punctuation.put("\n", Token.TokenTypes.NEWLINE);
         // Logic
         punctuation.put("&&", Token.TokenTypes.AND);
         punctuation.put("||", Token.TokenTypes.OR);
         punctuation.put("!", Token.TokenTypes.NOT);
-        // Quote
-        punctuation.put("'", Token.TokenTypes.QUOTEDCHARACTER);
-        punctuation.put("\"", Token.TokenTypes.QUOTEDSTRING);
-
     }
 
     public List<Token> Lex() throws Exception {
         var retVal = new LinkedList<Token>();
         Token t = null;
+        boolean shouldCheckScope = true;
 
         while (!textManager.isAtEnd()) {
             // Check indentation level
-            t = parseIndent(countIndents());
+            if (shouldCheckScope) {
+                // makeAllIndents(retVal);
+                // while scopeLevel < indentCount
+                //      retVal.add(new INDENT);
+                //      scopeLevel++;
+                // while
+            }
 
             char x = textManager.peekCharacter();
             if (Character.isLetter(x)) {
@@ -88,6 +89,10 @@ public class Lexer {
                     // DOT
                     t = parsePunctuation();
                 }
+            } else if ('\n' == x) {
+                t = parsePunctuation();
+                shouldCheckScope = true;
+                indentCount = countIndents();
             } else if ('\'' == x) {
                 // QuotedCharacters
                 t = parseQuotedCharacter();
@@ -98,6 +103,7 @@ public class Lexer {
                 // Comments
                 parseComment();
             } else {
+                // Miscellaneous
                 t = parsePunctuation();
             }
 
@@ -153,11 +159,6 @@ public class Lexer {
 
             // Handle 3.4.5 exception
             if (seenDecimal && '.' == c) {
-//                throw new SyntaxErrorException(
-//                        String.format("Invalid number %s", currentWord.append(c)),
-//                        lineNumber,
-//                        characterPosition
-//                );
                 break;
             }
             if ('.' == c) {
@@ -175,6 +176,9 @@ public class Lexer {
     }
 
     private Token parsePunctuation() {
+        // textManager.peekCharacter() is stuck at the end of the text
+        if (textManager.isAtEnd() && textManager.THROW_AWAY_CHAR == textManager.peekCharacter()) return null;
+
         String smallOperator = "" + lexerGetCharacter();
         // Check if at end before peeking
         String bigOperator = textManager.isAtEnd() ? "" : smallOperator + textManager.peekCharacter();

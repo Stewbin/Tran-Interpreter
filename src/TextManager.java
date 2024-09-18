@@ -1,6 +1,7 @@
 public class TextManager {
     private final String text;
     private int position = 0;
+    public final char THROW_AWAY_CHAR = '~';
 
     public TextManager(String text) {
         this.text = text;
@@ -17,7 +18,7 @@ public class TextManager {
     public char peekCharacter(int ahead) {
         // Check if peek-able before peeking
         int peekIndex = position + ahead;
-        return peekIndex < text.length() ? text.charAt(peekIndex) : '~';
+        return peekIndex < text.length() ? text.charAt(peekIndex) : THROW_AWAY_CHAR;
     }
 
     public char peekCharacter() {
