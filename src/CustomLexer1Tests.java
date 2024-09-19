@@ -1,5 +1,6 @@
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Assertions;
+import org.w3c.dom.Text;
 
 import java.util.Arrays;
 import java.util.regex.*;
@@ -135,5 +136,27 @@ public class CustomLexer1Tests {
     private String[] arrangeLexerValues(String text) throws Exception {
         Lexer lexer = new Lexer(text);
         return lexer.Lex().stream().map(Token::getValue).toArray(String[]::new);
+    }
+
+    @Test
+    public void specialSymbolsTest() throws Exception {
+        Lexer l = new Lexer("@ # @#@ &_");
+        var res = l.Lex();
+
+        Assertions.assertEquals(0, res.size());
+    }
+
+    @Test
+    public void testDebuggabilityOfAddCharAndString() {
+        String actual = addCharAndString();
+
+        Assertions.assertEquals("hello world", actual);
+    }
+
+    private String addCharAndString() {
+        String str = "hello worl";
+        TextManager textManager = new TextManager("ddddd");
+        String res = str + textManager.peekCharacter();
+        return res;
     }
 }

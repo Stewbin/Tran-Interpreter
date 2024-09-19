@@ -1,0 +1,11 @@
+TranProgram = {Class | Interface}
+
+Class = "class" Name ["implements" Name] ClassBody
+
+Name = Word
+
+ClassBody = { {Method} | {DeclarationStatement}
+
+StatementBlock = Statement | (Statement {Statement})
+
+Statement = 

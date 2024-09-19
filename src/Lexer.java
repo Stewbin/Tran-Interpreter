@@ -7,6 +7,8 @@ public class Lexer {
     private final HashMap<String, Token.TokenTypes> keywords;
     private final HashMap<String, Token.TokenTypes> punctuation;
     private int lineNumber = 1, characterPosition = 0;
+    private int scopeIndentationLevel = 0;
+
     public Lexer(String input) {
         this.textManager = new TextManager(input);
 
@@ -61,16 +63,14 @@ public class Lexer {
     public List<Token> Lex() throws Exception {
         var retVal = new LinkedList<Token>();
         Token t = null;
-        boolean shouldCheckScope = true;
+        boolean shouldUpdateScope = true;
 
         while (!textManager.isAtEnd()) {
-            // Check indentation level
-            if (shouldCheckScope) {
-                // makeAllIndents(retVal);
-                // while scopeLevel < indentCount
-                //      retVal.add(new INDENT);
-                //      scopeLevel++;
-                // while
+
+            // Parse indents after NEWLINE has been added
+            if (shouldUpdateScope) {
+                parseIndents(retVal);
+                shouldUpdateScope = false;
             }
 
             char x = textManager.peekCharacter();
@@ -90,9 +90,9 @@ public class Lexer {
                     t = parsePunctuation();
                 }
             } else if ('\n' == x) {
+                // Newline
                 t = parsePunctuation();
-                shouldCheckScope = true;
-                indentCount = countIndents();
+                shouldUpdateScope = true; // Check indent level after every newline
             } else if ('\'' == x) {
                 // QuotedCharacters
                 t = parseQuotedCharacter();
@@ -114,7 +114,26 @@ public class Lexer {
             }
         }
 
+        // DEDENT as needed at End Of Text
+        if (shouldUpdateScope) {
+            parseIndents(retVal);
+        }
+
         return retVal;
+    }
+
+    private void parseIndents(LinkedList<Token> retVal) {
+        int indentCount = countIndents();
+
+        // Create INDENT's or DEDENT's until scope level is appropriate
+        while (scopeIndentationLevel < indentCount) {
+            scopeIndentationLevel++;
+            retVal.add(new Token(Token.TokenTypes.INDENT, lineNumber, characterPosition));
+        }
+        while (scopeIndentationLevel > indentCount) {
+            scopeIndentationLevel--;
+            retVal.add(new Token(Token.TokenTypes.DEDENT, lineNumber, characterPosition));
+        }
     }
 
     private Token parseWord() {
@@ -179,9 +198,10 @@ public class Lexer {
         // textManager.peekCharacter() is stuck at the end of the text
         if (textManager.isAtEnd() && textManager.THROW_AWAY_CHAR == textManager.peekCharacter()) return null;
 
-        String smallOperator = "" + lexerGetCharacter();
-        // Check if at end before peeking
+        String smallOperator = String.valueOf(lexerGetCharacter());
+        // Check if at end before getting bigger operator
         String bigOperator = textManager.isAtEnd() ? "" : smallOperator + textManager.peekCharacter();
+
         if (punctuation.containsKey(bigOperator)) {
             lexerGetCharacter();
             return new Token(punctuation.get(bigOperator), lineNumber, characterPosition);
@@ -192,8 +212,8 @@ public class Lexer {
         }
     }
 
-
     // TextManager.getCharacter(), but it tracks line and col #
+
     private char lexerGetCharacter() {
         char c = textManager.getCharacter();
         characterPosition++;
@@ -203,17 +223,17 @@ public class Lexer {
         }
         return c;
     }
-
     private Token parseQuotedCharacter() throws SyntaxErrorException {
-        // e.g. 'c'
+        // e.g. 'A'
         lexerGetCharacter(); // consume the '\''
-        String c = "" + lexerGetCharacter(); // = c
+        String c = String.valueOf(lexerGetCharacter());
         if (lexerGetCharacter() != '\'') {
             throw new SyntaxErrorException("Unclosed char literal", lineNumber, characterPosition);
         }
 
         return new Token(Token.TokenTypes.QUOTEDCHARACTER, lineNumber, characterPosition, c);
     }
+
     private Token parseQuotedString() throws SyntaxErrorException {
         lexerGetCharacter(); // consume the '"'
         boolean isInQuote = true;
@@ -222,7 +242,7 @@ public class Lexer {
         while (!textManager.isAtEnd()) {
             char c = lexerGetCharacter();
             if ('\"' == c) {
-                isInQuote = false; // Begins as false}
+                isInQuote = false; // Begins as false
                 break;
             }
             currentWord.append(c);
@@ -236,11 +256,11 @@ public class Lexer {
     }
 
     private void parseComment() throws SyntaxErrorException {
-        char c = textManager.peekCharacter();
+        lexerGetCharacter(); // Consume the first '{'
         int closingBracesNeeded = 1;
 
         while (closingBracesNeeded > 0) {
-            c = lexerGetCharacter();
+            char c = lexerGetCharacter();
             if ('}' == c) closingBracesNeeded--;
             if ('{' == c) closingBracesNeeded++;
 
@@ -248,20 +268,6 @@ public class Lexer {
                 throw new SyntaxErrorException("Unclosed comment", lineNumber, characterPosition);
             }
         }
-    }
-
-    private int scopeIndentationLevel = 0;
-
-    private Token parseIndent(int indentCount) {
-        // Indent or dedent according to scope
-        if (indentCount - scopeIndentationLevel > 0) {
-            scopeIndentationLevel++;
-            return new Token(Token.TokenTypes.INDENT, lineNumber, characterPosition);
-        } else if (indentCount - scopeIndentationLevel < 0) {
-            scopeIndentationLevel--;
-            return new Token(Token.TokenTypes.DEDENT, lineNumber, characterPosition);
-        }
-        return null;
     }
 
     private int countIndents() {
