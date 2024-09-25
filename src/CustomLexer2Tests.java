@@ -228,4 +228,18 @@ public class CustomLexer2Tests {
             }
         }).toArray(Object[]::new);
     }
+
+    @Test
+    public void testProperCommentSyntaxErrorLocation() throws Exception {
+        String txt = "{Bad";
+        try {
+            var l = new Lexer(txt);
+            var res = l.Lex();
+        } catch (Exception e) {
+            Assertions.assertTrue(e instanceof SyntaxErrorException);
+            Assertions.assertEquals("Unclosed comment", e.getMessage());
+            Assertions.assertEquals(String.format("Error at line 1 at character %d at SyntaxErrorException: Unclosed comment", txt.length()), e.toString());
+        }
+
+    }
 }

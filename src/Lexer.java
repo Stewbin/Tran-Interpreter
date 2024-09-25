@@ -13,7 +13,7 @@ public class Lexer {
         this.textManager = new TextManager(input);
 
         // Fill keywords table
-        this.keywords = new HashMap<>(4);
+        this.keywords = new HashMap<>(14);
         keywords.put("accessor", Token.TokenTypes.ACCESSOR);
         keywords.put("mutator", Token.TokenTypes.MUTATOR);
         keywords.put("implements", Token.TokenTypes.IMPLEMENTS);
@@ -31,7 +31,7 @@ public class Lexer {
         keywords.put("constructor", Token.TokenTypes.CONSTRUCT);
 
         // Fill punctuation table
-        punctuation = new HashMap<>();
+        punctuation = new HashMap<>(21);
         // ???
         punctuation.put("=", Token.TokenTypes.ASSIGN);
         punctuation.put("(", Token.TokenTypes.LPAREN);
@@ -165,7 +165,7 @@ public class Lexer {
         }
     }
 
-    private Token parseNumber() throws SyntaxErrorException {
+    private Token parseNumber() {
         boolean seenDecimal = false;
         char c = textManager.peekCharacter();
         StringBuilder currentWord = new StringBuilder();
@@ -225,7 +225,7 @@ public class Lexer {
     }
     private Token parseQuotedCharacter() throws SyntaxErrorException {
         // e.g. 'A'
-        lexerGetCharacter(); // consume the '\''
+        lexerGetCharacter(); // consume the opening '\''
         String c = String.valueOf(lexerGetCharacter());
         if (lexerGetCharacter() != '\'') {
             throw new SyntaxErrorException("Unclosed char literal", lineNumber, characterPosition);
@@ -235,7 +235,7 @@ public class Lexer {
     }
 
     private Token parseQuotedString() throws SyntaxErrorException {
-        lexerGetCharacter(); // consume the '"'
+        lexerGetCharacter(); // consume the '\"'
         boolean isInQuote = true;
         StringBuilder currentWord = new StringBuilder();
 
