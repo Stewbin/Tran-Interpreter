@@ -1,6 +1,4 @@
-import java.util.HashMap;
-import java.util.LinkedList;
-import java.util.List;
+import java.util.*;
 
 public class Lexer {
     private final TextManager textManager;
@@ -62,7 +60,7 @@ public class Lexer {
 
     public List<Token> Lex() throws Exception {
         var retVal = new LinkedList<Token>();
-        Token t = null;
+        Optional<Token> t = Optional.empty();
         boolean shouldUpdateScope = true;
 
         while (!textManager.isAtEnd()) {
@@ -108,9 +106,8 @@ public class Lexer {
             }
 
             // Filter out invalid tokens
-            if (null != t) {
-                retVal.add(t);
-                t = null; // Reset token, to be safe
+            if (Objects.requireNonNull(t).isPresent()) {
+                retVal.add(t.get());
             }
         }
 
@@ -136,7 +133,7 @@ public class Lexer {
         }
     }
 
-    private Token parseWord() {
+    private Optional<Token> parseWord() {
         StringBuilder currentWord = new StringBuilder();
         char c = textManager.peekCharacter();
 
@@ -154,18 +151,18 @@ public class Lexer {
             String curWord = currentWord.toString();
             if (keywords.containsKey(curWord)) {
                 // Keyword found
-                return new Token(keywords.get(curWord), lineNumber, characterPosition);
+                return Optional.of(new Token(keywords.get(curWord), lineNumber, characterPosition));
             } else {
                 // Name found
-                return new Token(Token.TokenTypes.WORD, lineNumber, characterPosition, curWord);
+                return Optional.of(new Token(Token.TokenTypes.WORD, lineNumber, characterPosition, curWord));
             }
         } else {
             // Invalid token
-            return null;
+            return Optional.empty();
         }
     }
 
-    private Token parseNumber() {
+    private Optional<Token> parseNumber() {
         boolean seenDecimal = false;
         char c = textManager.peekCharacter();
         StringBuilder currentWord = new StringBuilder();
@@ -188,15 +185,15 @@ public class Lexer {
         }
 
         if (!currentWord.isEmpty()) {
-            return new Token(Token.TokenTypes.NUMBER, lineNumber, characterPosition, currentWord.toString());
+            return Optional.of(new Token(Token.TokenTypes.NUMBER, lineNumber, characterPosition, currentWord.toString()));
         } else {
-            return null;
+            return Optional.empty();
         }
     }
 
-    private Token parsePunctuation() {
+    private Optional<Token> parsePunctuation() {
         // textManager.peekCharacter() is stuck at the end of the text
-        if (textManager.isAtEnd() && textManager.THROW_AWAY_CHAR == textManager.peekCharacter()) return null;
+        if (textManager.isAtEnd() && textManager.THROW_AWAY_CHAR == textManager.peekCharacter()) return Optional.empty();
 
         String smallOperator = String.valueOf(lexerGetCharacter());
         // Check if at end before getting bigger operator
@@ -204,16 +201,15 @@ public class Lexer {
 
         if (punctuation.containsKey(bigOperator)) {
             lexerGetCharacter();
-            return new Token(punctuation.get(bigOperator), lineNumber, characterPosition);
+            return Optional.of(new Token(punctuation.get(bigOperator), lineNumber, characterPosition));
         } else if (punctuation.containsKey(smallOperator)) {
-            return new Token(punctuation.get(smallOperator), lineNumber, characterPosition);
+            return Optional.of(new Token(punctuation.get(smallOperator), lineNumber, characterPosition));
         } else {
-            return null;
+            return Optional.empty();
         }
     }
 
     // TextManager.getCharacter(), but it tracks line and col #
-
     private char lexerGetCharacter() {
         char c = textManager.getCharacter();
         characterPosition++;
@@ -223,7 +219,8 @@ public class Lexer {
         }
         return c;
     }
-    private Token parseQuotedCharacter() throws SyntaxErrorException {
+
+    private Optional<Token> parseQuotedCharacter() throws SyntaxErrorException {
         // e.g. 'A'
         lexerGetCharacter(); // consume the opening '\''
         String c = String.valueOf(lexerGetCharacter());
@@ -231,10 +228,10 @@ public class Lexer {
             throw new SyntaxErrorException("Unclosed char literal", lineNumber, characterPosition);
         }
 
-        return new Token(Token.TokenTypes.QUOTEDCHARACTER, lineNumber, characterPosition, c);
+        return Optional.of(new Token(Token.TokenTypes.QUOTEDCHARACTER, lineNumber, characterPosition, c));
     }
 
-    private Token parseQuotedString() throws SyntaxErrorException {
+    private Optional<Token> parseQuotedString() throws SyntaxErrorException {
         lexerGetCharacter(); // consume the '\"'
         boolean isInQuote = true;
         StringBuilder currentWord = new StringBuilder();
@@ -252,7 +249,7 @@ public class Lexer {
             throw new SyntaxErrorException("Unclosed string literal", lineNumber, characterPosition);
         }
 
-        return new Token(Token.TokenTypes.QUOTEDSTRING, lineNumber, characterPosition, currentWord.toString());
+        return Optional.of(new Token(Token.TokenTypes.QUOTEDSTRING, lineNumber, characterPosition, currentWord.toString()));
     }
 
     private void parseComment() throws SyntaxErrorException {
