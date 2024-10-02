@@ -67,12 +67,14 @@ public class PrivateLexerAssignment1Tests{
     @Test
     public void IndentTest() {
         var l = new Lexer(
-                "loop keepGoing\n" +
-                    "    if n >= 15\n" +
-	                "        keepGoing = false\n" +
-                    "loop keepGoing\n" +
-                    "    if n >= 15\n" +
-                    "        keepGoing = false\n"
+                """
+                        loop keepGoing
+                            if n >= 15
+                                keepGoing = false
+                        loop keepGoing
+                            if n >= 15
+                                keepGoing = false
+                        """
                  );
         try {
             var res = l.Lex();

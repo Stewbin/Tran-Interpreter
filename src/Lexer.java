@@ -275,7 +275,7 @@ public class Lexer {
 
     private int countIndents() {
         final int SPACES_PER_INDENT = 4;
-        boolean isIndent = false;
+        boolean isIndent;
         int indentCount = 0;
 
         // Parse a single indent
