@@ -7,7 +7,7 @@ public class Lexer {
     private final HashMap<String, Token.TokenTypes> keywords;
     private final HashMap<String, Token.TokenTypes> punctuation;
     private int lineNumber = 1, characterPosition = 0;
-    private int scopeIndentationLevel = 0;
+    private int scopeLevel = 0;
 
     public Lexer(String input) {
         this.textManager = new TextManager(input);
@@ -117,26 +117,10 @@ public class Lexer {
             }
         }
 
-        // DEDENT as needed at End Of Text
-        if (shouldUpdateScope) {
-            parseIndents(retVal);
-        }
+        // DEDENT back to scope 0 as needed at End Of Text
+        parseIndents(retVal);
 
         return retVal;
-    }
-
-    private void parseIndents(LinkedList<Token> retVal) {
-        int indentCount = countIndents();
-
-        // Create INDENT's or DEDENT's until scope level is appropriate
-        while (scopeIndentationLevel < indentCount) {
-            scopeIndentationLevel++;
-            retVal.add(new Token(Token.TokenTypes.INDENT, lineNumber, characterPosition));
-        }
-        while (scopeIndentationLevel > indentCount) {
-            scopeIndentationLevel--;
-            retVal.add(new Token(Token.TokenTypes.DEDENT, lineNumber, characterPosition));
-        }
     }
 
     private Token parseWord() {
@@ -215,8 +199,8 @@ public class Lexer {
         }
     }
 
-    // TextManager.getCharacter(), but it tracks line and col #
 
+    // TextManager.getCharacter(), but it tracks line and col #
     private char lexerGetCharacter() {
         char c = textManager.getCharacter();
         characterPosition++;
@@ -226,6 +210,7 @@ public class Lexer {
         }
         return c;
     }
+
     private Token parseQuotedCharacter() throws SyntaxErrorException {
         // e.g. 'A'
         lexerGetCharacter(); // consume the opening '\''
@@ -236,7 +221,6 @@ public class Lexer {
 
         return new Token(Token.TokenTypes.QUOTEDCHARACTER, lineNumber, characterPosition, c);
     }
-
     private Token parseQuotedString() throws SyntaxErrorException {
         lexerGetCharacter(); // consume the '\"'
         boolean isInQuote = true;
@@ -270,6 +254,20 @@ public class Lexer {
             if (textManager.isAtEnd() && closingBracesNeeded > 0) {
                 throw new SyntaxErrorException("Unclosed comment", lineNumber, characterPosition);
             }
+        }
+    }
+
+    private void parseIndents(LinkedList<Token> retVal) {
+        int indentCount = countIndents();
+
+        // Create INDENT's or DEDENT's until scope level is appropriate
+        while (scopeLevel < indentCount) {
+            scopeLevel++;
+            retVal.add(new Token(Token.TokenTypes.INDENT, lineNumber, characterPosition));
+        }
+        while (scopeLevel > indentCount) {
+            scopeLevel--;
+            retVal.add(new Token(Token.TokenTypes.DEDENT, lineNumber, characterPosition));
         }
     }
 

@@ -6,8 +6,10 @@ public class ParserTests {
     private TranNode LexAndParse(String input, int tokenCount) throws Exception {
         var l = new Lexer(input);
         var tokens = l.Lex();
+//        tokens.forEach(System.out::println);
         Assertions.assertEquals(tokenCount, tokens.size());
         var tran = new TranNode();
+//        System.out.println(tran);
         var p = new Parser(tran, tokens);
         p.Tran();
         return tran;

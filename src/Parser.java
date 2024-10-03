@@ -1,7 +1,5 @@
 import AST.*;
 
-import java.util.ArrayList;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Optional;
 
@@ -17,26 +15,33 @@ public class Parser {
     // Tran = { Class | Interface }
     public void Tran() throws SyntaxErrorException {
         while (!tokenManager.done()) {
-            if (tokenManager.matchAndRemove(Token.TokenTypes.INTERFACE).isPresent()) {
-                parseInterface().ifPresent(tranNode.Interfaces::add);
-            } else if (tokenManager.matchAndRemove(Token.TokenTypes.CLASS).isPresent()) {
+            var token = tokenManager.peek(0);
+            // At end of stream
+            if (token.isEmpty())
+                break;
+            // Class
+            if (token.get().getType() == Token.TokenTypes.CLASS) {
                 // TODO: ClassNode parsing
+            // Interface
+            } else if (token.get().getType() == Token.TokenTypes.INTERFACE) {
+                parseInterface().ifPresent(tranNode.Interfaces::add);
             }
         }
     }
 
     // Interface = "interface" Word { MethodHeader }
     private Optional<InterfaceNode> parseInterface() throws SyntaxErrorException {
-        // It is assumed that parseInterface has only been called after already detecting an INTERFACE Token
-
         InterfaceNode interfaceNode = new InterfaceNode();
+        // "interface" Keyword
+        if (tokenManager.matchAndRemove(Token.TokenTypes.INTERFACE).isEmpty())
+            return Optional.empty();
         // Name
         var nameToken = tokenManager.matchAndRemove(Token.TokenTypes.WORD);
         if (nameToken.isEmpty())
             throw new SyntaxErrorException("Interfaces must have a name", tokenManager.getCurrentLine(), tokenManager.getCurrentColumnNumber());
         interfaceNode.name = nameToken.get().getValue();
         // Newline
-        RequireNewLine();
+        requireNewLine();
         // Indent
         if (tokenManager.matchAndRemove(Token.TokenTypes.INDENT).isEmpty())
             throw new SyntaxErrorException("Indent Expected", tokenManager.getCurrentLine(), tokenManager.getCurrentColumnNumber());
@@ -73,6 +78,9 @@ public class Parser {
         // Right Paren
         if (tokenManager.matchAndRemove(Token.TokenTypes.RPAREN).isEmpty())
             throw new SyntaxErrorException("RPAREN Expected", tokenManager.getCurrentLine(), tokenManager.getCurrentColumnNumber());
+        // Newline
+        requireNewLine();
+
         // Return types
         // If a colon is present
         if (tokenManager.matchAndRemove(Token.TokenTypes.COLON).isPresent())  {
@@ -112,10 +120,12 @@ public class Parser {
     }
 
 
-    private void RequireNewLine() throws SyntaxErrorException {
-        if (tokenManager.matchAndRemove(Token.TokenTypes.NEWLINE).isEmpty()) {
-            throw new SyntaxErrorException("Missing NewLine character", tokenManager.getCurrentLine(), tokenManager.getCurrentColumnNumber());
-        }
+    private void requireNewLine() throws SyntaxErrorException {
+        boolean foundNewLine = false;
+        while (tokenManager.matchAndRemove(Token.TokenTypes.NEWLINE).isPresent())
+            foundNewLine = true;
+
+        if (!foundNewLine) throw new SyntaxErrorException("Newline Expected", tokenManager.getCurrentLine(), tokenManager.getCurrentColumnNumber());
     }
 
 } // EOC

@@ -19,6 +19,7 @@ public class TokenManager {
             if (tokens.get(position).getType() == t) {
                 return Optional.of(tokens.get(position++));
             }
+            System.out.printf("Expected a %s token, but received a %s\n", t, tokens.get(position));
         }
         return Optional.empty();
     }
