@@ -39,13 +39,12 @@ public class TokenManager {
     }
 
     public int getCurrentLine() {
-
-        // TODO: What if we call get_() while out of bounds?
-        // Should this be handled? OR an error should be thrown?
+        if (done()) { return -1; } // Out of bounds handling
         return tokens.get(position).getLineNumber();
     }
 
-    public int getCurrentColumn() {
+    public int getCurrentColumnNumber() {
+        if (done()) { return -1; } // Out of bounds handling
         return tokens.get(position).getColumnNumber();
     }
 }

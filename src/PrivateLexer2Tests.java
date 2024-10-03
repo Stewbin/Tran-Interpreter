@@ -4,7 +4,7 @@ import org.junit.jupiter.api.Test;
 public class PrivateLexer2Tests {
     @Test
     public void KeyWordLexerTest() {
-        var l = new Lexer("class interface something accessor: mutator: if else loop and or shared construct new private implements true false not");
+        var l = new Lexer("class interface something accessor: mutator: if else loop && || shared construct new private implements true false !");
         try {
             var res = l.Lex();
 
