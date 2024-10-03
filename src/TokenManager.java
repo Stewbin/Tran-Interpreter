@@ -11,7 +11,7 @@ public class TokenManager {
     }
 
     public boolean done() {
-        return tokens.size() == position;
+        return position == tokens.size();
     }
 
     public Optional<Token> matchAndRemove(Token.TokenTypes t) {
@@ -19,15 +19,14 @@ public class TokenManager {
             if (tokens.get(position).getType() == t) {
                 return Optional.of(tokens.get(position++));
             }
-            System.out.printf("Expected a %s token, but received a %s\n", t, tokens.get(position));
+//            System.out.printf("Expected a %s token, but received a %s\n", t, tokens.get(position));
         }
         return Optional.empty();
     }
 
     public Optional<Token> peek(int i) {
-        if (done()) {
+        if (position + i >= tokens.size())
             return Optional.empty();
-        }
         return Optional.of(tokens.get(position + i));
     }
 

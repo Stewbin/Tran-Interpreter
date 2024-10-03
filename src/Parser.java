@@ -31,26 +31,31 @@ public class Parser {
 
     // Interface = "interface" Word { MethodHeader }
     private Optional<InterfaceNode> parseInterface() throws SyntaxErrorException {
-        InterfaceNode interfaceNode = new InterfaceNode();
+        var interfaceNode = new InterfaceNode();
         // "interface" Keyword
         if (tokenManager.matchAndRemove(Token.TokenTypes.INTERFACE).isEmpty())
             return Optional.empty();
+
         // Name
         var nameToken = tokenManager.matchAndRemove(Token.TokenTypes.WORD);
         if (nameToken.isEmpty())
             throw new SyntaxErrorException("Interfaces must have a name", tokenManager.getCurrentLine(), tokenManager.getCurrentColumnNumber());
         interfaceNode.name = nameToken.get().getValue();
+
         // Newline
         requireNewLine();
+
         // Indent
         if (tokenManager.matchAndRemove(Token.TokenTypes.INDENT).isEmpty())
             throw new SyntaxErrorException("Indent Expected", tokenManager.getCurrentLine(), tokenManager.getCurrentColumnNumber());
+
         // Method headers
         do {
             var method = parseMethodHeader();
             if (method.isEmpty()) break;
             interfaceNode.methods.add(method.get());
         } while (true);
+
         // Dedent
         if (tokenManager.matchAndRemove(Token.TokenTypes.DEDENT).isEmpty())
             throw new SyntaxErrorException("Dedent Expected", tokenManager.getCurrentLine(), tokenManager.getCurrentColumnNumber());
@@ -60,42 +65,51 @@ public class Parser {
 
     private Optional<MethodHeaderNode> parseMethodHeader() throws SyntaxErrorException {
         var methodHeaderNode = new MethodHeaderNode();
-
         // Name
         var nameToken = tokenManager.matchAndRemove(Token.TokenTypes.WORD);
-        if (nameToken.isEmpty()) {
-            throw new SyntaxErrorException("Methods must have a name", tokenManager.getCurrentLine(), tokenManager.getCurrentColumnNumber());
-        }
+        if (nameToken.isEmpty())
+            return Optional.empty();
         methodHeaderNode.name = nameToken.get().getValue();
+
         // Left Paren
         if (tokenManager.matchAndRemove(Token.TokenTypes.LPAREN).isEmpty())
             throw new SyntaxErrorException("LPAREN Expected", tokenManager.getCurrentLine(), tokenManager.getCurrentColumnNumber());
+
         // Parameters
         while (tokenManager.nextTwoTokensMatch(Token.TokenTypes.WORD, Token.TokenTypes.WORD)) {
             // Add VariableDeclarationNode to parameters list
             parseVariableDeclaration().ifPresent(methodHeaderNode.parameters::add);
         }
+
         // Right Paren
         if (tokenManager.matchAndRemove(Token.TokenTypes.RPAREN).isEmpty())
             throw new SyntaxErrorException("RPAREN Expected", tokenManager.getCurrentLine(), tokenManager.getCurrentColumnNumber());
-        // Newline
-        requireNewLine();
+
+        // Colon
+        if (tokenManager.matchAndRemove(Token.TokenTypes.COLON).isEmpty())  {
+            // Newline
+            requireNewLine();
+
+            return Optional.of(methodHeaderNode);
+        }
 
         // Return types
-        // If a colon is present
-        if (tokenManager.matchAndRemove(Token.TokenTypes.COLON).isPresent())  {
-            // There must be at least one return declaration
-            do {
-                var returnDeclaration = parseVariableDeclaration();
-                if (returnDeclaration.isPresent()) {
-                    // Add returnDeclaration to return types list
-                    methodHeaderNode.returns.add(returnDeclaration.get());
-                } else {
-                    throw new SyntaxErrorException(
-                            "Must specify at least one return type after Colon", tokenManager.getCurrentLine(), tokenManager.getCurrentColumnNumber()
-                    );
-                }
-            } while (tokenManager.nextTwoTokensMatch(Token.TokenTypes.WORD, Token.TokenTypes.WORD));
+        do {
+            var returnDeclaration = parseVariableDeclaration();
+            if (returnDeclaration.isEmpty()) {
+                throw new SyntaxErrorException(
+                        "Must specify at least one return type after Colon", tokenManager.getCurrentLine(), tokenManager.getCurrentColumnNumber()
+                );
+            } else {
+                // Add returnDeclaration to return types list
+                methodHeaderNode.returns.add(returnDeclaration.get());
+            }
+        } while (tokenManager.nextTwoTokensMatch(Token.TokenTypes.WORD, Token.TokenTypes.WORD));
+
+        // If not at End Of File, method must end with NEWLINE token
+        if (tokenManager.peek(1).isPresent()) {
+            // Newline
+            requireNewLine();
         }
 
         return Optional.of(methodHeaderNode);
@@ -114,7 +128,7 @@ public class Parser {
         // Type
         tokenManager.matchAndRemove(Token.TokenTypes.WORD).ifPresent(typeToken -> varDeclareNode.type = typeToken.getValue());
         // Name
-        tokenManager.matchAndRemove(Token.TokenTypes.WORD).ifPresent(nameToken -> varDeclareNode.type = nameToken.getValue());
+        tokenManager.matchAndRemove(Token.TokenTypes.WORD).ifPresent(nameToken -> varDeclareNode.name = nameToken.getValue());
 
         return Optional.of(varDeclareNode);
     }
