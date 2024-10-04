@@ -23,7 +23,7 @@ public class CustomParser1Tests {
 
 
     @Test
-    public void testInterface() throws Exception {
+    public void givenInterfaceTest() throws Exception {
         List<Token> tokens = new ArrayList<>();
         tokens.add(new Token(Token.TokenTypes.INTERFACE, 1, 1, "interface"));
         tokens.add(new Token(Token.TokenTypes.WORD, 1, 11, "someName"));
@@ -86,5 +86,36 @@ public class CustomParser1Tests {
         Parser parser = new Parser(tranNode, tokens);
 
         // Assert that parser was successfully created
+    }
+
+    @Test
+    public void allCombinationsOfInterfaceMethodsTest() throws Exception {
+        TranNode tran = LexAndParse("interface intFace\n" +
+                                    "    noParamNoReturn ()\n" +
+                                    "    noParamOneReturn () : number x\n" +
+                                    "    noParamThreeReturn () : number x, number y, number z\n" +
+                                    "    oneParamNoReturn (number a)\n" +
+                                    "    twoParamNoReturn (number a, number b)\n" +
+                                    "    twoParamThreeReturn (number a, number b) : number x, number y, number z\n",
+                62);
+
+        var interfaces = tran.Interfaces;
+        // Assert correct counts
+        Assertions.assertEquals(1, interfaces.size());
+        Assertions.assertEquals(6, interfaces.getFirst().methods.size());
+
+        // Assert correct methods
+        String[] methods = {
+                "noParamNoReturn ()\n",
+                "noParamOneReturn () : number x,\n",
+                "noParamThreeReturn () : number x,number y,number z,\n",
+                "oneParamNoReturn (number a,)\n",
+                "twoParamNoReturn (number a,number b,)\n",
+                "twoParamThreeReturn (number a,number b,) : number x,number y,number z,\n"
+        };
+
+        for (int i = 0; i < methods.length; i++) {
+            Assertions.assertEquals(methods[i], interfaces.getFirst().methods.get(i).toString());
+        }
     }
 }

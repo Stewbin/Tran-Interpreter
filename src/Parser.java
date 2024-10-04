@@ -76,10 +76,17 @@ public class Parser {
             throw new SyntaxErrorException("LPAREN Expected", tokenManager.getCurrentLine(), tokenManager.getCurrentColumnNumber());
 
         // Parameters
-        while (tokenManager.nextTwoTokensMatch(Token.TokenTypes.WORD, Token.TokenTypes.WORD)) {
-            // Add VariableDeclarationNode to parameters list
-            parseVariableDeclaration().ifPresent(methodHeaderNode.parameters::add);
+        // Handle 0 or 1 parameters
+        parseVariableDeclaration().ifPresent(methodHeaderNode.parameters::add);
+        // 2 or more parameters, look for comma
+        while (tokenManager.matchAndRemove(Token.TokenTypes.COMMA).isPresent()) {
+            var parameterDeclaration = parseVariableDeclaration();
+            if (parameterDeclaration.isEmpty())
+                throw new SyntaxErrorException("Parameter Expected after comma", tokenManager.getCurrentLine(), tokenManager.getCurrentColumnNumber());
+            methodHeaderNode.parameters.add(parameterDeclaration.get());
         }
+
+
 
         // Right Paren
         if (tokenManager.matchAndRemove(Token.TokenTypes.RPAREN).isEmpty())
@@ -104,7 +111,7 @@ public class Parser {
                 // Add returnDeclaration to return types list
                 methodHeaderNode.returns.add(returnDeclaration.get());
             }
-        } while (tokenManager.nextTwoTokensMatch(Token.TokenTypes.WORD, Token.TokenTypes.WORD));
+        } while (tokenManager.matchAndRemove(Token.TokenTypes.COMMA).isPresent()); // In case of multiple returns, look for comma
 
         // If not at End Of File, method must end with NEWLINE token
         if (tokenManager.peek(1).isPresent()) {

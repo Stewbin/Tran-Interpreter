@@ -6,7 +6,7 @@ public class Lexer {
     private final TextManager textManager;
     private final HashMap<String, Token.TokenTypes> keywords;
     private final HashMap<String, Token.TokenTypes> punctuation;
-    private int lineNumber = 1, characterPosition = 0;
+    private int lineNumber = 1, columnNumber = 0;
     private int scopeLevel = 0;
 
     public Lexer(String input) {
@@ -141,10 +141,10 @@ public class Lexer {
             String curWord = currentWord.toString();
             if (keywords.containsKey(curWord)) {
                 // Keyword found
-                return new Token(keywords.get(curWord), lineNumber, characterPosition);
+                return new Token(keywords.get(curWord), lineNumber, columnNumber);
             } else {
                 // Name found
-                return new Token(Token.TokenTypes.WORD, lineNumber, characterPosition, curWord);
+                return new Token(Token.TokenTypes.WORD, lineNumber, columnNumber, curWord);
             }
         } else {
             // Invalid token
@@ -175,7 +175,7 @@ public class Lexer {
         }
 
         if (!currentWord.isEmpty()) {
-            return new Token(Token.TokenTypes.NUMBER, lineNumber, characterPosition, currentWord.toString());
+            return new Token(Token.TokenTypes.NUMBER, lineNumber, columnNumber, currentWord.toString());
         } else {
             return null;
         }
@@ -191,9 +191,9 @@ public class Lexer {
 
         if (punctuation.containsKey(bigOperator)) {
             lexerGetCharacter();
-            return new Token(punctuation.get(bigOperator), lineNumber, characterPosition);
+            return new Token(punctuation.get(bigOperator), lineNumber, columnNumber);
         } else if (punctuation.containsKey(smallOperator)) {
-            return new Token(punctuation.get(smallOperator), lineNumber, characterPosition);
+            return new Token(punctuation.get(smallOperator), lineNumber, columnNumber);
         } else {
             return null;
         }
@@ -203,10 +203,10 @@ public class Lexer {
     // TextManager.getCharacter(), but it tracks line and col #
     private char lexerGetCharacter() {
         char c = textManager.getCharacter();
-        characterPosition++;
+        columnNumber++;
         if ('\n' == c) {
             lineNumber++;
-            characterPosition = 0;
+            columnNumber = 0;
         }
         return c;
     }
@@ -216,10 +216,10 @@ public class Lexer {
         lexerGetCharacter(); // consume the opening '\''
         String c = String.valueOf(lexerGetCharacter());
         if (lexerGetCharacter() != '\'') {
-            throw new SyntaxErrorException("Unclosed char literal", lineNumber, characterPosition);
+            throw new SyntaxErrorException("Unclosed char literal", lineNumber, columnNumber);
         }
 
-        return new Token(Token.TokenTypes.QUOTEDCHARACTER, lineNumber, characterPosition, c);
+        return new Token(Token.TokenTypes.QUOTEDCHARACTER, lineNumber, columnNumber, c);
     }
     private Token parseQuotedString() throws SyntaxErrorException {
         lexerGetCharacter(); // consume the '\"'
@@ -236,10 +236,10 @@ public class Lexer {
         }
 
         if (isInQuote) { // && textManager.isAtEnd()
-            throw new SyntaxErrorException("Unclosed string literal", lineNumber, characterPosition);
+            throw new SyntaxErrorException("Unclosed string literal", lineNumber, columnNumber);
         }
 
-        return new Token(Token.TokenTypes.QUOTEDSTRING, lineNumber, characterPosition, currentWord.toString());
+        return new Token(Token.TokenTypes.QUOTEDSTRING, lineNumber, columnNumber, currentWord.toString());
     }
 
     private void parseComment() throws SyntaxErrorException {
@@ -252,7 +252,7 @@ public class Lexer {
             if ('{' == c) closingBracesNeeded++;
 
             if (textManager.isAtEnd() && closingBracesNeeded > 0) {
-                throw new SyntaxErrorException("Unclosed comment", lineNumber, characterPosition);
+                throw new SyntaxErrorException("Unclosed comment", lineNumber, columnNumber);
             }
         }
     }
@@ -263,11 +263,11 @@ public class Lexer {
         // Create INDENT's or DEDENT's until scope level is appropriate
         while (scopeLevel < indentCount) {
             scopeLevel++;
-            retVal.add(new Token(Token.TokenTypes.INDENT, lineNumber, characterPosition));
+            retVal.add(new Token(Token.TokenTypes.INDENT, lineNumber, columnNumber));
         }
         while (scopeLevel > indentCount) {
             scopeLevel--;
-            retVal.add(new Token(Token.TokenTypes.DEDENT, lineNumber, characterPosition));
+            retVal.add(new Token(Token.TokenTypes.DEDENT, lineNumber, columnNumber));
         }
     }
 
