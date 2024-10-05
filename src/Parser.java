@@ -54,6 +54,10 @@ public class Parser {
             var method = parseMethodHeader();
             if (method.isEmpty()) break;
             interfaceNode.methods.add(method.get());
+
+            // Require newlines, if not at End Of File
+            if (tokenManager.peek(1).isPresent())
+                requireNewLine();
         } while (true);
 
         // Dedent
@@ -63,6 +67,7 @@ public class Parser {
         return Optional.of(interfaceNode);
     }
 
+    // MethodHeader = WORD "(" [VariableDeclaration {"," VariableDeclaration}] ")" [":" VariableDeclaration {"," VariableDeclaration}]
     private Optional<MethodHeaderNode> parseMethodHeader() throws SyntaxErrorException {
         var methodHeaderNode = new MethodHeaderNode();
         // Name
@@ -86,46 +91,30 @@ public class Parser {
             methodHeaderNode.parameters.add(parameterDeclaration.get());
         }
 
-
-
         // Right Paren
         if (tokenManager.matchAndRemove(Token.TokenTypes.RPAREN).isEmpty())
             throw new SyntaxErrorException("RPAREN Expected", tokenManager.getCurrentLine(), tokenManager.getCurrentColumnNumber());
 
         // Colon
-        if (tokenManager.matchAndRemove(Token.TokenTypes.COLON).isEmpty())  {
-            // Newline
-            requireNewLine();
-
-            return Optional.of(methodHeaderNode);
-        }
-
-        // Return types
-        do {
-            var returnDeclaration = parseVariableDeclaration();
-            if (returnDeclaration.isEmpty()) {
-                throw new SyntaxErrorException(
-                        "Must specify at least one return type after Colon", tokenManager.getCurrentLine(), tokenManager.getCurrentColumnNumber()
-                );
-            } else {
-                // Add returnDeclaration to return types list
-                methodHeaderNode.returns.add(returnDeclaration.get());
-            }
-        } while (tokenManager.matchAndRemove(Token.TokenTypes.COMMA).isPresent()); // In case of multiple returns, look for comma
-
-        // If not at End Of File, method must end with NEWLINE token
-        if (tokenManager.peek(1).isPresent()) {
-            // Newline
-            requireNewLine();
+        if (tokenManager.matchAndRemove(Token.TokenTypes.COLON).isPresent())  {
+            // Return types
+            do {
+                var returnDeclaration = parseVariableDeclaration();
+                if (returnDeclaration.isEmpty()) {
+                    throw new SyntaxErrorException(
+                            "Must specify at least one return type after Colon", tokenManager.getCurrentLine(), tokenManager.getCurrentColumnNumber()
+                    );
+                } else {
+                    // Add returnDeclaration to return types list
+                    methodHeaderNode.returns.add(returnDeclaration.get());
+                }
+            } while (tokenManager.matchAndRemove(Token.TokenTypes.COMMA).isPresent()); // In case of multiple returns, look for comma
         }
 
         return Optional.of(methodHeaderNode);
     }
 
-    private Optional<ConstructorNode> parseConstructor() throws SyntaxErrorException {
-        return Optional.empty();
-    }
-
+    // VariableDeclaration = WORD WORD {"," WORD}
     private Optional<VariableDeclarationNode> parseVariableDeclaration() throws SyntaxErrorException {
         // Must be two WORD tokens next to each other
         if (!tokenManager.nextTwoTokensMatch(Token.TokenTypes.WORD, Token.TokenTypes.WORD))
@@ -147,6 +136,21 @@ public class Parser {
             foundNewLine = true;
 
         if (!foundNewLine) throw new SyntaxErrorException("Newline Expected", tokenManager.getCurrentLine(), tokenManager.getCurrentColumnNumber());
+    }
+
+    // Class  = "class" WORD ["implements" WORD {, WORD}] NEWLINE INDENT {Statement NEWLINE} DEDENT
+    private Optional<ClassNode> parseClass() throws SyntaxErrorException {
+        var classNode = new ClassNode();
+        // Class
+        if (tokenManager.matchAndRemove(Token.TokenTypes.CLASS).isEmpty())
+            return Optional.empty();
+
+        // Name
+        return Optional.of(classNode);
+    }
+
+    private Optional<ConstructorNode> parseConstructor() throws SyntaxErrorException {
+        return Optional.empty();
     }
 
 } // EOC

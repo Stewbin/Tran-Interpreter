@@ -23,7 +23,7 @@ public class CustomParser1Tests {
 
 
     @Test
-    public void givenInterfaceTest() throws Exception {
+    public void includedInterfaceTest() throws Exception {
         List<Token> tokens = new ArrayList<>();
         tokens.add(new Token(Token.TokenTypes.INTERFACE, 1, 1, "interface"));
         tokens.add(new Token(Token.TokenTypes.WORD, 1, 11, "someName"));
