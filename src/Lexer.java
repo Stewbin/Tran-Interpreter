@@ -106,9 +106,7 @@ public class Lexer {
             }
 
             // Filter out invalid tokens
-            if (Objects.requireNonNull(t).isPresent()) {
-                retVal.add(t.get());
-            }
+            t.ifPresent(retVal::add);
         }
 
         // DEDENT as needed at End Of Text
