@@ -21,7 +21,7 @@ public class Parser {
                 break;
             // Class
             if (token.get().getType() == Token.TokenTypes.CLASS) {
-                // TODO: ClassNode parsing
+                parseClass().ifPresent(tranNode.Classes::add);
             // Interface
             } else if (token.get().getType() == Token.TokenTypes.INTERFACE) {
                 parseInterface().ifPresent(tranNode.Interfaces::add);
@@ -146,7 +146,72 @@ public class Parser {
             return Optional.empty();
 
         // Name
+        if (tokenManager.matchAndRemove(Token.TokenTypes.WORD).isEmpty())
+            throw new SyntaxErrorException("Class must have name", tokenManager.getCurrentLine(), tokenManager.getCurrentColumnNumber());
+
+        // "Implements"
+        while (tokenManager.matchAndRemove(Token.TokenTypes.IMPLEMENTS).isPresent()) {
+            // Interfaces
+
+            // Check for at least one interface name
+            var interfaceName = tokenManager.matchAndRemove(Token.TokenTypes.WORD);
+            // If none, then SyntaxError
+            if (interfaceName.isEmpty()) {
+                throw new SyntaxErrorException(
+                        "At least one name of interface must be specified after \"implements\"",
+                        tokenManager.getCurrentLine(),
+                        tokenManager.getCurrentColumnNumber()
+                );
+            }
+            // Add interface name to classNode
+            classNode.interfaces.add(interfaceName.get().getValue());
+
+            // > 1 interfaces specified must have comma
+            while (tokenManager.matchAndRemove(Token.TokenTypes.COMMA).isPresent()) {
+                interfaceName = tokenManager.matchAndRemove(Token.TokenTypes.WORD);
+                if (interfaceName.isEmpty()) {
+                    throw new SyntaxErrorException(
+                            "Interface name must be specified after COMMA",
+                            tokenManager.getCurrentLine(),
+                            tokenManager.getCurrentColumnNumber()
+                    );
+                }
+                classNode.interfaces.add(interfaceName.get().getValue());
+            }
+            ;
+        }
+
+        // Newline
+        requireNewLine();
+
+        // Indent
+        if (tokenManager.matchAndRemove(Token.TokenTypes.INDENT).isEmpty())
+            throw new SyntaxErrorException("Indent Expected", tokenManager.getCurrentLine(), tokenManager.getCurrentColumnNumber());
+
+        // Parse members
+//        do {
+//            // Constructors
+//            var maybeConstructor = parseConstructor();
+//            maybeConstructor.ifPresent(constructorNode -> classNode.constructors.add(constructorNode));
+//            // Methods
+//
+//            // Fields (MemberNodes)
+//
+//        } while ();
+
+        // Dedent
+        if (tokenManager.matchAndRemove(Token.TokenTypes.DEDENT).isEmpty())
+            throw new SyntaxErrorException("Dedent Expected", tokenManager.getCurrentLine(), tokenManager.getCurrentColumnNumber());
+
         return Optional.of(classNode);
+    }
+
+    private Optional<MemberNode> parseField() {
+        return Optional.empty();
+    }
+
+    private Optional<MethodDeclarationNode> parseMethodDeclaration() {
+        return Optional.empty();
     }
 
     private Optional<ConstructorNode> parseConstructor() throws SyntaxErrorException {
