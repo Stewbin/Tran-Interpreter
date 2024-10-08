@@ -2,23 +2,19 @@ TranProgram ::= {Class | Interface}
 
 // Class Definition
 
-Class ::= "class" Name ["implements" Name] ClassBody
+Class ::= "class" Name ["implements" Name] NEWLINE INDENT ClassBody DEDENT
 
 ClassBody ::= {{MethodHeader StatementBlock} | {MemberDeclaration}}
 
-MethodHeader ::= ["private"] ["shared"] MethodName "(" [{DeclarationStatement}] ")" [":" {DeclarationStatement}]
+MethodHeader ::= ["private"] ["shared"] Name "(" [{DeclarationStatement}] ")" [":" DeclarationStatement {DeclarationStatement}]
 
-MethodName ::= Name 
-		
-DeclarationStatement ::= Datatype (VariableName | {VariableName, })
-
-VariableName ::= Name
+DeclarationStatement ::= Datatype Name {"," Name}
 
 DataType ::= <number> | <boolean> | <string> | <character>
 
 MemberDeclaration ::= DeclarationStatement
-			["accessor[ ]:" StatementBlock]
-			["mutator[ ]:" StatementBlock]
+			["accessor"[" "]":" INDENT {Statement} DEDENT]
+			["mutator"[" "]":" INDENT {Statement} DEDENT]
 
 // what counts as a valid Name Definition
 
@@ -33,28 +29,26 @@ Interface ::= "interface" Name
 	
 // Statement Definition
 
-StatementBlock ::= {Statement} // All on same indentation level
-
-Statement ::= IfStatement | LoopStatement | AssignmentStatement | VoidMethodCallStatement | DeclarationStatement
+Statement ::= IfStatement | LoopStatement | AssignmentStatement | MethodCallStatement | DeclarationStatement
 
 IfStatement ::= "if" BooleanExpression StatementBlock
 
-LoopStatement ::= "loop" BooleanExpression StatementBlock
+LoopStatement ::= "loop" BooleanExpression INDENT {Statement} DEDENT
 
 AssignmentStatement ::= VariableName "=" Expression
 
-VoidMethodCallStatement ::= MethodName "(" [Expression] ")"
+MethodCallStatement ::= MethodName "(" [Expression {"," Expression}]")"
 
 // Expression Definition
 
 Expression ::= BooleanExpression | NumberExpression | StringExpression
 
-BooleanExpression ::= (VariableOrNumber NumberRelat VariableOrNumber)
+BooleanExpression ::= (VariableOrNumber NumberRelation VariableOrNumber)
 			| <boolean>
 			| (BooleanExpression ("&&" | "||") BooleanExpression) 
 			| "!" BooleanExpression
 
-NumberRelat ::= "==" | "!=" | "<" | "<=" | ">" | ">="
+NumberRelation ::= "==" | "!=" | "<" | "<=" | ">" | ">="
 
 VariableOrNumber ::= Name | <number> 
 
@@ -62,19 +56,19 @@ NumberExpression ::= NumberExpression NumberOp NumberExpression | VariableOrNumb
 
 NumberOp ::= "+" | "-" | "*" | "/" | "%"
 
-StringExpression ::= VariableOrString [+ (StringExpression | <character>)]
+StringExpression ::= VariableOrString ["+" (StringExpression | <character>)]
 
 VariableOrString ::= Name | <string>
 
 // Literals of each data type
 
-<number> ::= [-] Digit {Digit} [.Digit {Digit}]
+<number> ::= [-] Digit {Digit} ["."Digit {Digit}]
 
 Digit ::= "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9"
 
-<character> ::= Letter | Digit | "," | "." | ... // All Unicode
+<character> ::= Letter | Digit | "," | "." | ... // All Unicode chars
 
-<string> ::= {character}
+<string> ::= "\""{character}"\""
 
 <boolean> ::= "true" | "false"
 
