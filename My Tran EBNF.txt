@@ -31,9 +31,11 @@ Interface ::= "interface" Name
 
 Statement ::= IfStatement | LoopStatement | AssignmentStatement | MethodCallStatement | DeclarationStatement
 
+StatementBlock ::= Statement | {Statement Newline}
+
 IfStatement ::= "if" BooleanExpression StatementBlock
 
-LoopStatement ::= "loop" BooleanExpression INDENT {Statement} DEDENT
+LoopStatement ::= "loop" BooleanExpression INDENT StatementBlock DEDENT
 
 AssignmentStatement ::= VariableName "=" Expression
 
