@@ -149,6 +149,7 @@ interface someName
     square() : number s
 class TranExample implements someName
     number m
+    string str
     start()
         number x
         number y
@@ -211,6 +212,7 @@ class TranExample implements someName
         */
 
         var tokens = new LinkedList<>(list);//converting list to linked list so the token manager can handle this
+        tokens.forEach(System.out::println);
         var p = new Parser(tran, tokens);
         p.Tran();
         var clazz = tran.Classes.getFirst();
@@ -245,14 +247,16 @@ class TranExample implements someName
     public void testmutator() throws Exception {
         var tran = new TranNode();
         //Ignore the line and column number here, all you will be using the line number and columnNumber in parser is for printing syntax error in Tran code lexed by you.
-        Lexer L= new Lexer("interface someName\n" +
+        Lexer L= new Lexer(
+                "interface someName\n" +
                 "    square() : number s\n" +
                 "class TranExample implements someName\n" +
                 "\tnumber m\n" +
                 "\t\tmutator:"
         );
         var LT= L.Lex();
-        System.out.println(LT);LT.add(new Token(Token.TokenTypes.DEDENT, 9, 18));
+        System.out.println(LT);
+//        LT.add(new Token(Token.TokenTypes.DEDENT, 9, 18));
 
         var tokens = new LinkedList<>(LT);//converting list to linked list so the token manager can handle this
         var p = new Parser(tran, LT);

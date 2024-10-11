@@ -1,9 +1,27 @@
+import AST.TranNode;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.util.LinkedList;
 import java.util.List;
 
 public class CustomLexer2Tests {
+
+    @Test
+    public void testmutator() throws Exception {
+        var tran = new TranNode();
+        //Ignore the line and column number here, all you will be using the line number and columnNumber in parser is for printing syntax error in Tran code lexed by you.
+        Lexer L= new Lexer(
+//                "interface someName\n" +
+//                "    square() : number s\n" +
+                "class TranExample implements someName\n" +
+                        "\tnumber m\n" +
+                        "\t\tmutator:"
+        );
+        var LT= L.Lex();
+        System.out.println(LT);LT.add(new Token(Token.TokenTypes.DEDENT, 9, 18));
+
+    }
 
     @Test
     public void simpleQuotedCharacter() throws Exception {

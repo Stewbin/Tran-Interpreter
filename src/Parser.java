@@ -290,12 +290,7 @@ public class Parser {
         // Newline
         requireNewLine();
         // MethodBody
-        methodNode.statements = parseStatementBlock().orElseThrow(
-                () -> new SyntaxErrorException("MethodBody not found for " + methodNode.name,
-                        tokenManager.getCurrentLine(),
-                        tokenManager.getCurrentColumnNumber()
-                )
-        );
+        parseMethodBody(methodNode.locals, methodNode.statements);
 
         return Optional.of(methodNode);
     }
@@ -324,10 +319,36 @@ public class Parser {
         tokenManager.matchAndRemove(Token.TokenTypes.RPAREN).orElseThrow(() -> new SyntaxErrorException("Rparen Expected", tokenManager.getCurrentLine(), tokenManager.getCurrentColumnNumber()));
         // Newline
         requireNewLine();
-        // MethodBody == StatementBlock
-        parseStatementBlock().ifPresent(statements -> constructorNode.statements = statements);
+        // MethodBody
+        parseMethodBody(constructorNode.locals, constructorNode.statements);
 
         return Optional.of(constructorNode);
+    }
+
+    // MethodBody = INDENT { VariableDeclaration NEWLINE } { Statement NEWLINE } DEDENT
+    private void parseMethodBody(List<VariableDeclarationNode> locals, List<StatementNode> statements) throws SyntaxErrorException {
+        // Indent
+        if (tokenManager.matchAndRemove(Token.TokenTypes.INDENT).isEmpty())
+            throw new SyntaxErrorException("Indent Expected", tokenManager.getCurrentLine(), tokenManager.getCurrentColumnNumber());
+
+        // { VariableDeclaration NEWLINE }
+        var variableDeclaration = parseVariableDeclaration();
+        while (variableDeclaration.isPresent()) {
+            locals.add(variableDeclaration.get());
+            requireNewLine();
+            variableDeclaration = parseVariableDeclaration();
+        }
+
+        // {Statement NEWLINE}
+        var statement = parseStatement();
+        while (statement.isPresent()) {
+            statements.add(statement.get());
+            requireNewLine();
+        }
+
+        // Dedent
+        if (tokenManager.matchAndRemove(Token.TokenTypes.DEDENT).isEmpty())
+            throw new SyntaxErrorException("Dedent Expected", tokenManager.getCurrentLine(), tokenManager.getCurrentColumnNumber());
     }
 
     private Optional<? extends StatementNode> parseStatement() throws SyntaxErrorException {
@@ -341,6 +362,8 @@ public class Parser {
         // Assignment
         retval = parseAssignment();
         if (retval.isPresent()) return retval;
+        // Empty statement
+        if (tokenManager.matchAndRemove(Token.TokenTypes.NEWLINE).isPresent()) return Optional.empty();
 
         throw new SyntaxErrorException("Unknown statement type", tokenManager.getCurrentLine(), tokenManager.getCurrentColumnNumber());
     }
@@ -391,7 +414,8 @@ public class Parser {
         // Newline
         requireNewLine();
         // Statements
-        ifNode.statements = parseStatementBlock().orElseThrow(() -> new SyntaxErrorException("Body expected in if-statement", tokenManager.getCurrentLine(), tokenManager.getCurrentColumnNumber()));
+        ifNode.statements = parseStatementBlock().orElse(null);
+//                .orElseThrow(() -> new SyntaxErrorException("Body expected in if-statement", tokenManager.getCurrentLine(), tokenManager.getCurrentColumnNumber()));
         // Else-Statement
         if (tokenManager.matchAndRemove(Token.TokenTypes.ELSE).isPresent()) {
             var elseNode = new ElseNode(); // Make elseNode
