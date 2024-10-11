@@ -14,6 +14,10 @@ public class TokenManager {
         return position == tokens.size();
     }
 
+    public boolean isOnlyDedentsLeft() {
+        return tokens.stream().skip(position+1).allMatch(token -> token.getType() == Token.TokenTypes.DEDENT);
+    }
+
     public Optional<Token> matchAndRemove(Token.TokenTypes t) {
         if (!done()) {
             if (tokens.get(position).getType() == t) {

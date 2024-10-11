@@ -15,13 +15,33 @@ public class CustomParser2Tests {
     }
 
     @Test
-    public void simpleFieldWithAccessorAndMutator() throws Exception {
+    public void incorrectMethodHeadersThrowSyntaxError() throws Exception {
+        var l1 = new Lexer(
+                "interface node\n" +
+                "\texponent(,number x) : number s,");
+
+        var l2 = new Lexer(
+                "interface node\n" +
+                "\tkill(, string person)\n");
+
+        var l3 = new Lexer(
+                "interface node\n" +
+                "\tupdateClock(number t,)\n");
+
+        Assertions.assertThrows(SyntaxErrorException.class, l1::Lex);
+        Assertions.assertThrows(SyntaxErrorException.class, l2::Lex);
+        Assertions.assertThrows(SyntaxErrorException.class, l3::Lex);
+    }
+
+    @Test
+    public void singleFieldWithAccessorAndMutator() throws Exception {
         var l = new Lexer(
                 "class intFace\n" +
                 "\tnumber numFaces\n" +
                 "\t\taccessor:\n" +
-                "\t\t\tstatement\n" +
+                "\t\t\tif\n" +
                 "\t\tmutator:\n" +
+                "\t\t\tloop\n" +
                 "\t\t\t{Empty mutator}"
         );
 

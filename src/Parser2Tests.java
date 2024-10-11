@@ -270,8 +270,10 @@ class TranExample implements someName
         p.Tran();
     }
 
+    @Test
     public void testClassIf() throws Exception {
-        Lexer L = new Lexer("class Tran\n" +
+        Lexer L = new Lexer(
+                "class Tran\n" +
                 "\thelloWorld()\n" +
                 "\t\tif\n" );
         var rev= L.Lex();
