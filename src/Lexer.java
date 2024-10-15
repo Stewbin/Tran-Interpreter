@@ -107,6 +107,7 @@ public class Lexer {
 
             // Filter out invalid tokens
             t.ifPresent(retVal::add);
+            t = Optional.empty();
         }
 
         // DEDENT back to scope 0 as needed at End Of Text

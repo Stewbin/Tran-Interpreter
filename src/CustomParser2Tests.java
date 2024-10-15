@@ -1,3 +1,5 @@
+import AST.IfNode;
+import AST.LoopNode;
 import AST.TranNode;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -12,6 +14,72 @@ public class CustomParser2Tests {
         var p = new Parser(tran, tokens);
         p.Tran();
         return tran;
+    }
+
+    @Test
+    public void testConstructorsOfAllSignatures() throws Exception {
+        var tran = LexAndParse(
+                "class Student\n" +
+                "    string name\n" +
+                "    number powerLevel\n" +
+                "    construct()\n" +
+                "        string n\n" +
+                "        number p\n" +
+                "        if\n" +
+                        "\t\n" +
+                "    construct(string n)\n" +
+                "        number p\n" +
+                "        loop\n" +
+                        "\t\n" +
+                "    construct(string n, number p)\n" +
+                "        if\n" +
+                "        loop\n" +
+                        "\t\n" +
+                "    construct(character a, boolean b, string c, number d)\n" +
+                "\t\n"
+        );
+
+        // Classes
+        Assertions.assertEquals(1, tran.Classes.size());
+        Assertions.assertEquals("Student", tran.Classes.getFirst().name);
+        // Fields
+        var members = tran.Classes.getFirst().members;
+        Assertions.assertEquals(2, members.size());
+        Assertions.assertEquals("string name\n", members.getFirst().toString());
+        Assertions.assertEquals("number powerLevel\n", members.getLast().toString());
+        // Constructors
+        var constructors = tran.Classes.getFirst().constructors;
+        Assertions.assertEquals(4, constructors.size());
+        // 1st constructor
+        Assertions.assertEquals(0, constructors.get(0).parameters.size());
+        Assertions.assertEquals(2, constructors.get(0).locals.size());
+        Assertions.assertEquals("string n", constructors.get(0).locals.get(0).toString());
+        Assertions.assertEquals("number p", constructors.get(0).locals.get(1).toString());
+        Assertions.assertEquals(1, constructors.get(0).statements.size());
+        Assertions.assertInstanceOf(IfNode.class, constructors.get(0).statements.getFirst());
+        // 2nd constructor
+        Assertions.assertEquals(1, constructors.get(1).parameters.size());
+        Assertions.assertEquals("string n", constructors.get(1).parameters.getFirst().toString());
+        Assertions.assertEquals(1, constructors.get(1).locals.size());
+        Assertions.assertEquals("number p", constructors.get(1).locals.getFirst().toString());
+        Assertions.assertEquals(1, constructors.get(1).statements.size());
+        Assertions.assertInstanceOf(LoopNode.class, constructors.get(1).statements.getFirst());
+        // 3rd constructor
+        Assertions.assertEquals(2, constructors.get(2).parameters.size());
+        Assertions.assertEquals("string n", constructors.get(2).parameters.get(0).toString());
+        Assertions.assertEquals("number p", constructors.get(2).parameters.get(1).toString());
+        Assertions.assertEquals(0, constructors.get(2).locals.size());
+        Assertions.assertEquals(2, constructors.get(2).statements.size());
+        Assertions.assertInstanceOf(IfNode.class, constructors.get(2).statements.getFirst());
+        Assertions.assertInstanceOf(LoopNode.class, constructors.get(2).statements.getLast());
+        // 4th constructor
+        Assertions.assertEquals(4, constructors.get(3).parameters.size());
+        Assertions.assertEquals("character a", constructors.get(3).parameters.getFirst().toString());
+        Assertions.assertEquals("boolean b", constructors.get(3).parameters.get(1).toString());
+        Assertions.assertEquals("string c", constructors.get(3).parameters.get(2).toString());
+        Assertions.assertEquals("number d", constructors.get(3).parameters.get(3).toString());
+        Assertions.assertEquals(0, constructors.get(3).locals.size());
+        Assertions.assertEquals(0, constructors.get(3).statements.size());
     }
 
     @Test
@@ -58,7 +126,7 @@ public class CustomParser2Tests {
         );
 
         var tokes = l.Lex();
-        System.out.println(tokes);
+//        System.out.println(tokes);
 
         var tran = new TranNode();
         var p = new Parser(tran, tokes);

@@ -55,11 +55,13 @@ public class CustomLexer2Tests {
         var l2 = new Lexer("\t");
         var res2 = l2.Lex();
 
-        Assertions.assertEquals(1, res1.size());
+        Assertions.assertEquals(2, res1.size());
         Assertions.assertEquals(Token.TokenTypes.INDENT, res1.getFirst().getType());
+        Assertions.assertEquals(Token.TokenTypes.DEDENT, res1.get(1).getType());
 
-        Assertions.assertEquals(1, res2.size());
+        Assertions.assertEquals(2, res2.size());
         Assertions.assertEquals(Token.TokenTypes.INDENT, res2.getFirst().getType());
+        Assertions.assertEquals(Token.TokenTypes.DEDENT, res2.get(1).getType());
     }
 
     @Test
@@ -223,7 +225,7 @@ public class CustomLexer2Tests {
                         "\t\t\tx=x-1 {indent level = 3}\n" +
                     "{because of end of file - output 3 dedent tokens}");
         var res = l.Lex();
-        res.forEach(System.out::println);
+//        res.forEach(System.out::println);
         Object[] actual = arrangeLexerValues(res);
         Object[] expected = {Token.TokenTypes.CLASS, "foo", Token.TokenTypes.NEWLINE,
                 Token.TokenTypes.INDENT, "Bar", Token.TokenTypes.LPAREN, "number", "x", Token.TokenTypes.RPAREN, Token.TokenTypes.NEWLINE,
@@ -231,8 +233,13 @@ public class CustomLexer2Tests {
                 Token.TokenTypes.INDENT, "x", Token.TokenTypes.ASSIGN, "x", Token.TokenTypes.MINUS, "1", Token.TokenTypes.NEWLINE,
                 Token.TokenTypes.DEDENT, Token.TokenTypes.DEDENT, Token.TokenTypes.DEDENT};
 
-//        System.out.println(actual[14].getClass());
-//        System.out.println(expected[14].getClass());
+        // Show diff
+        for (int i = 0; i < expected.length; i++) {
+            if (!expected[i].equals(actual[i])) {
+                System.out.println("The black sheep is: " + actual[i] + " vs, " + expected[i] + " at " + i);
+                break;
+            }
+        }
 
         Assertions.assertArrayEquals(expected, actual);
     }
