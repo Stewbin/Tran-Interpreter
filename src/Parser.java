@@ -176,7 +176,7 @@ public class Parser {
             classNode.interfaces.add(
                 tokenManager.matchAndRemove(Token.TokenTypes.WORD)
                     .orElseThrow(() -> new SyntaxErrorException(
-                            "At least one name of interface must be specified after \"implements\"", tokenManager.getCurrentLine(), tokenManager.getCurrentColumnNumber()))
+                            "At least one name of interface must be specified after 'implements'", tokenManager.getCurrentLine(), tokenManager.getCurrentColumnNumber()))
                     .getValue()
             );
 
@@ -373,8 +373,21 @@ public class Parser {
         retval = parseLoopStatement();
         if (retval.isPresent()) return retval;
         // Neither Loop nor If
-        retval = disambiguate(); // btwn Assignment or MethodCall
+        retval = disambiguateStatements(); // btwn Assignment or MethodCall
         return retval;
+    }
+
+    private Optional<? extends StatementNode> disambiguateStatements() throws SyntaxErrorException {
+        // Handle void method calls, e.g. "myMethod()\n"
+        var maybeMethodCallExp = parseMethodCallExpression();
+        if (maybeMethodCallExp.isPresent()) return Optional.of(new MethodCallStatementNode(maybeMethodCallExp.get()));
+
+        // Check if it's a multi-assignment MethodCall e.g. "x, y, z = myMethod()\n"
+        if (tokenManager.nextTwoTokensMatch(Token.TokenTypes.WORD, Token.TokenTypes.COMMA)) {
+            return parseMethodCallStatement();
+        }
+        // If not, then it may or may not be an Assignment
+        return parseAssignment(); // parseAssignment() already handles if it's not a valid statement
     }
 
     // Loop = "loop" [ VariableReference "=" ] BoolExpTerm NEWLINE Statements
@@ -394,7 +407,7 @@ public class Parser {
         }
 
         // BoolExpTerm
-        loopNode.expression = parseBoolExpTerm().orElseThrow(() -> new SyntaxErrorException("Boolean Expression Expected after \"loop\"", tokenManager.getCurrentLine(), tokenManager.getCurrentColumnNumber()));
+        loopNode.expression = parseBoolExpTerm().orElseThrow(() -> new SyntaxErrorException("Boolean Expression Expected after 'loop'", tokenManager.getCurrentLine(), tokenManager.getCurrentColumnNumber()));
 
         // Optional Statement-Body
         if (tokenManager.nextTwoTokensMatch(Token.TokenTypes.NEWLINE, Token.TokenTypes.INDENT)) {
@@ -407,6 +420,7 @@ public class Parser {
 
         return Optional.of(loopNode);
     }
+
     // "if" BoolExp NEWLINE Statements ["else" NEWLINE (Statement | Statements)]
     private Optional<IfNode> parseIfStatement() throws SyntaxErrorException {
         var ifNode = new IfNode();
@@ -414,7 +428,7 @@ public class Parser {
         // "if"
         if (tokenManager.matchAndRemove(Token.TokenTypes.IF).isEmpty()) return Optional.empty();
         // BoolExp
-        ifNode.condition = parseBoolExpTerm().orElseThrow(() -> new SyntaxErrorException("Boolean expression expected after \"if\"", tokenManager.getCurrentLine(), tokenManager.getCurrentColumnNumber()));
+        ifNode.condition = parseBoolExpTerm().orElseThrow(() -> new SyntaxErrorException("Boolean expression expected after 'if'", tokenManager.getCurrentLine(), tokenManager.getCurrentColumnNumber()));
 
         // Optional Statement-Body
         if (tokenManager.nextTwoTokensMatch(Token.TokenTypes.NEWLINE, Token.TokenTypes.INDENT)) {
@@ -439,8 +453,8 @@ public class Parser {
 
         return Optional.of(ifNode);
     }
-    // StatementBlock (officially: Statements) = INDENT { Statement NEWLINE } DEDENT
 
+    // StatementBlock (officially: Statements) = INDENT { Statement NEWLINE } DEDENT
     private Optional<List<StatementNode>> parseStatementBlock() throws SyntaxErrorException {
         List<StatementNode> statements = new LinkedList<>();
         // Indent
@@ -465,12 +479,12 @@ public class Parser {
     // BoolExpTerm = BoolExpFactor {("and"|"or") BoolExpTerm} | "not" BoolExpTerm
     private Optional<ExpressionNode> parseBoolExpTerm() throws SyntaxErrorException {
         // Unary Operator Case //
-        var notOpNode = new NotOpNode();
         // "not"
         if (tokenManager.matchAndRemove(Token.TokenTypes.NOT).isPresent()) {
+            var notOpNode = new NotOpNode();
             // BoolExpTerm
             notOpNode.left = parseBoolExpTerm().orElseThrow(
-                    () -> new SyntaxErrorException("BoolTerm expected", tokenManager.getCurrentLine(), tokenManager.getCurrentColumnNumber())
+                    () -> new SyntaxErrorException("BoolTerm expected after 'not'", tokenManager.getCurrentLine(), tokenManager.getCurrentColumnNumber())
             );
             return Optional.of(notOpNode);
         }
@@ -479,15 +493,15 @@ public class Parser {
         var boolOpNode = new BooleanOpNode();
         // L = BoolExpFactor()
         var boolFactor = parseBoolExpFactor();
-        if (boolFactor.isEmpty()) return Optional.empty();
+        if (boolFactor.isEmpty())
+            return Optional.empty();
         boolOpNode.left = boolFactor.get();
-
-        // While (next = "and" or "or")
 
         // Get operator
         var operator = tokenManager.matchAndRemove(Token.TokenTypes.AND)
                 .or(() -> tokenManager.matchAndRemove(Token.TokenTypes.OR))
                 .map(Token::getType);
+        // While (next = "and" or "or")...
         while (operator.isPresent()) {
             // "and" | "or"
             if (operator.get() == Token.TokenTypes.AND)
@@ -506,6 +520,11 @@ public class Parser {
             boolOpCopy.right = boolOpNode.right;
             // L = this new node
             boolOpNode.left = boolOpCopy;
+
+            // Get operator
+            operator = tokenManager.matchAndRemove(Token.TokenTypes.AND)
+                    .or(() -> tokenManager.matchAndRemove(Token.TokenTypes.OR))
+                    .map(Token::getType);
         }
 
         return Optional.of(boolOpNode);
@@ -517,7 +536,7 @@ public class Parser {
         var methodCall = parseMethodCallExpression();
         if (methodCall.isPresent()) {return methodCall;}
         // Comparison
-        var comparison = Comparison();
+        var comparison = parseComparison();
         if (comparison.isPresent()) {return comparison;}
         // Variable Reference
         return parseVariableReference();
@@ -525,7 +544,7 @@ public class Parser {
     }
 
     // Comparison (Unofficial) = (Expression ( "==" | "!=" | "<=" | ">=" | ">" | "<" ) Expression)
-    private Optional<CompareNode> Comparison() throws SyntaxErrorException {
+    private Optional<CompareNode> parseComparison() throws SyntaxErrorException {
         var comparison = new CompareNode();
         // Left Expression
         var lexp = parseExpression();
@@ -571,8 +590,8 @@ public class Parser {
         }
         return Optional.empty();
     }
-
     // Assignment = VariableReference "=" Expression
+
     private Optional<AssignmentNode> parseAssignment() throws SyntaxErrorException {
         var assignmentNode = new AssignmentNode();
 
@@ -590,19 +609,6 @@ public class Parser {
         );
 
         return Optional.of(assignmentNode);
-    }
-
-    private Optional<? extends StatementNode> disambiguate() throws SyntaxErrorException {
-        // Handle void method calls, e.g. "myMethod()\n"
-        var maybeMethodCallExp = parseMethodCallExpression();
-        if (maybeMethodCallExp.isPresent()) return Optional.of(new MethodCallStatementNode(maybeMethodCallExp.get()));
-
-        // Check if it's a multi-assignment MethodCall e.g. "x, y, z = myMethod()\n"
-        if (tokenManager.nextTwoTokensMatch(Token.TokenTypes.WORD, Token.TokenTypes.COMMA)) {
-            return parseMethodCallStatement();
-        }
-        // If not, then it may or may not be an Assignment
-        return parseAssignment(); // parseAssignment() already handles if it's not a valid statement
     }
 
     // MethodCall = [VariableReference { "," VariableReference } "="] MethodCallExpression
@@ -649,32 +655,31 @@ public class Parser {
         var methodCallExp = new MethodCallExpressionNode(); // Make node
 
         // Optional caller object e.g. "myObj.method();"
-        if (tokenManager.nextTwoTokensMatch(Token.TokenTypes.WORD, Token.TokenTypes.DOT)) {
+        if (tokenManager.nextTwoTokensMatch(Token.TokenTypes.WORD, Token.TokenTypes.DOT))
             methodCallExp.objectName = tokenManager.matchAndRemove(Token.TokenTypes.WORD).map(Token::getValue);
-        }
+
         // Method name
-        var name = tokenManager.matchAndRemove(Token.TokenTypes.WORD).map(Token::getValue);
-        if (name.isEmpty()) {
-            // Object found, but no method
-            if (methodCallExp.objectName.isPresent())
-                throw new SyntaxErrorException("MethodCallExp expected after '.'", tokenManager.getCurrentLine(), tokenManager.getCurrentColumnNumber());
-            // Neither object nor method found => not a method
-            else
+        if (!tokenManager.nextTwoTokensMatch(Token.TokenTypes.WORD, Token.TokenTypes.LPAREN)) {
+            // Method was not found, nor object => not a method
+            if (methodCallExp.objectName == null || methodCallExp.objectName.isEmpty())
                 return Optional.empty();
+            // Object found, but no method
+            else
+                throw new SyntaxErrorException("MethodCallExp expected after '.'", tokenManager.getCurrentLine(), tokenManager.getCurrentColumnNumber());
         }
-        methodCallExp.methodName = name.get(); // Add method name
+        tokenManager.matchAndRemove(Token.TokenTypes.WORD).map(Token::getValue).ifPresent(name -> methodCallExp.methodName = name); // Add name
 
         // "("
         if (tokenManager.matchAndRemove(Token.TokenTypes.LPAREN).isEmpty())
             throw new SyntaxErrorException("LPAREN expected", tokenManager.getCurrentLine(), tokenManager.getCurrentColumnNumber());
-
         // Optional arguments
         var firstArgument = parseExpression();
         if (firstArgument.isPresent()) {
             // Add first argument
             methodCallExp.parameters.add(firstArgument.get());
 
-            // Any more refs must be preceded by comma: {"," VariableReference}
+            // Any more refs must be preceded by comma
+            // {"," VariableReference}
             while (tokenManager.matchAndRemove(Token.TokenTypes.COMMA).isPresent()) {
                 methodCallExp.parameters.add(
                         parseExpression().orElseThrow(
@@ -683,7 +688,6 @@ public class Parser {
                 );
             }
         }
-
         // ")"
         if (tokenManager.matchAndRemove(Token.TokenTypes.RPAREN).isEmpty())
             throw new SyntaxErrorException("RPAREN expected", tokenManager.getCurrentLine(), tokenManager.getCurrentColumnNumber());
@@ -699,20 +703,30 @@ public class Parser {
     // Term = Factor { ("*"|"/"|"%") Factor }
     private Optional<MathOpNode> parseTerm() throws SyntaxErrorException {
         var left = parseFactor();
+        // Not a Term
+        if (left.isEmpty())
+            return Optional.empty();
+
+        var termNode = new MathOpNode();
+        termNode.left = left.get();
 
         // While operator = * or / or %
         var operator = parseMathOperator();
         while (operator.isPresent()) {
-            var right = parseFactor();
-            // Make new MathOpNode with current operation
-            var newOpNode = parseFactor();
-
+            var right = parseFactor().orElseThrow(
+                    () -> new SyntaxErrorException("Factor expected after operator", tokenManager.getCurrentLine(), tokenManager.getCurrentColumnNumber())
+            );
+            // Make new MathOpNode with current operation & copy over everything
+            var newOpNode = new MathOpNode();
+            newOpNode.left = left.get();
+            newOpNode.op = operator.get();
+            newOpNode.right = right;
             // Left = this new node
-
+            termNode.left = newOpNode;
             // Get next operator
             operator = parseMathOperator();
         }
-        return left;
+        return Optional.of(termNode);
     }
 
     private Optional<MathOpNode.MathOperations> parseMathOperator() throws SyntaxErrorException {
@@ -728,7 +742,7 @@ public class Parser {
     }
 
     // Factor = NumberLiteral | VariableReference | "true" | "false" | StringLiteral | CharacterLiteral | MethodCallExpression
-    // | "(" Expression ")" | ObjCreateExp
+    // | "(" Expression ")" | Instantiation
     private Optional<? extends ExpressionNode> parseFactor() throws SyntaxErrorException {
         Optional<? extends ExpressionNode> retVal;
         // NumberLiteral
@@ -762,9 +776,9 @@ public class Parser {
                 throw new SyntaxErrorException("RPAREN expected", tokenManager.getCurrentLine(), tokenManager.getCurrentColumnNumber());
         }
         if (retVal.isPresent()) return retVal;
-        // ObjCreateExp
+        // (Object) Instantiation
         retVal = parseInstantiation();
-        return retVal; // If empty, return empty
+        return retVal; // If empty, return the empty
     }
 
     // NumberLiteral = { 0-9 } [. { 0-9 }]
