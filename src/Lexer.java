@@ -28,6 +28,10 @@ public class Lexer {
         keywords.put("shared", Token.TokenTypes.SHARED);
         keywords.put("construct", Token.TokenTypes.CONSTRUCT);
 
+        keywords.put("and", Token.TokenTypes.AND);
+        keywords.put("or", Token.TokenTypes.OR);
+        keywords.put("not", Token.TokenTypes.NOT);
+
         // Fill punctuation table
         punctuation = new HashMap<>(21);
         // ???
@@ -52,7 +56,7 @@ public class Lexer {
         punctuation.put(">=", Token.TokenTypes.GREATERTHANEQUAL);
         // Spaces
         punctuation.put("\n", Token.TokenTypes.NEWLINE);
-        // Logic
+        // (Include symbols support for bool operators)
         punctuation.put("&&", Token.TokenTypes.AND);
         punctuation.put("||", Token.TokenTypes.OR);
         punctuation.put("!", Token.TokenTypes.NOT);

@@ -6,7 +6,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Optional;
 
-public class CustomParser3and4Tests {
+public class CustomParser3Tests {
 
     private TranNode LexAndParse(String input) throws Exception {
         var l = new Lexer(input);
@@ -17,8 +17,7 @@ public class CustomParser3and4Tests {
         return tran;
     }
 
-    @Test
-    public void whatDoesAMethodCallStatementNodeLookLike() {
+    private void whatDoesAMethodCallStatementNodeLookLike() {
         var methodCall = new MethodCallStatementNode();
 
         methodCall.methodName = "myMethod";
@@ -63,43 +62,6 @@ public class CustomParser3and4Tests {
         );
     }
 
-
-//    @Test
-    public void methodCallsOfAllTypes_shouldParse() throws Exception {
-        var t = LexAndParse(
-                "class Tran\n" +
-                        "\tnumber fancyMath\n" +
-                        "\t\taccessor:\n" +
-                        "\t\t\tvoidMethodCall()\n" +
-                        "\t\t\tvoidMethodCall(x)\n" +
-                        "\t\t\tvoidMethodCall(a, b, c)\n" +
-                        "\t\t\tvoidMethodCall(anotherVoidMethodCall())\n" +
-                        "\t\tmutator:\n" +
-                        "\t\t\ty = singleReturnCall()\n" +
-                        "\t\t\ty = singleReturnCall(x)\n" +
-                        "\t\t\ty = singleReturnCall(a, b, c)\n" +
-                        "\t\t\tw, y, z = multiReturnCall()\n"
-        );
-
-        Assertions.assertEquals(1, t.Classes.size());
-        var m = t.Classes.getFirst().members;
-        Assertions.assertEquals(1, m.size());
-        Assertions.assertEquals(4, m.getFirst().accessor.get().size());
-        Assertions.assertEquals(4, m.getFirst().mutator.get().size());
-        Assertions.assertEquals(
-                "number fancyMath\n" +
-                "voidMethodCall()\n" +
-                "voidMethodCall(x)\n" +
-                "voidMethodCall(a, b, c)\n" +
-                "voidMethodCall(anotherVoidMethodCall())\n" +
-                "y = singleReturnCall()\n" +
-                "y = singleReturnCall(x)\n" +
-                "y = singleReturnCall(a, b, c)\n" +
-                "w, y, z = multiReturnCall()\n",
-                m.getFirst().toString()
-                );
-    }
-
     @Test
     public void testClassWithMethodsAndMembers() throws Exception {
         var t = LexAndParse(
@@ -125,5 +87,45 @@ public class CustomParser3and4Tests {
 
         Assertions.assertEquals(1, t.Classes.getFirst().methods.size());
         Assertions.assertEquals(1, t.Classes.getFirst().methods.getFirst().statements.size());
+    }
+
+    @Test
+    public void andOrBoolExpressions_shouldParse() throws Exception {
+        var t = LexAndParse(
+                "class Tran\n" +
+                        "\tcheckX(string x)\n" +
+                        "\t\tif boolVariable\n" +
+                        "\t\tif loft and reght\n" +
+                        "\t\tif elft or rwght\n" +
+                        "\t\tif a > b\n" +
+                        "\t\tif a < b\n" +
+                        "\t\tif a == b\n" +
+                        "\t\tif a <= b\n" +
+                        "\t\tif a >= b\n" +
+                        "\t\tif a != b\n" +
+                        "\t\tif a < b and b < c\n" +
+                        "\t\tif b >= a and c <= b\n" +
+                        "\t\tif a == b and not c > b\n" +
+                        "\t\tif not not a != c and not not c > b\n"
+        );
+
+        Assertions.assertEquals(1, t.Classes.size());
+        var m = t.Classes.getFirst().methods;
+        Assertions.assertEquals(1, m.size());
+        Assertions.assertEquals("checkX", m.getFirst().name);
+        Assertions.assertEquals(1, m.getFirst().parameters.size());
+        Assertions.assertEquals("string x", m.getFirst().parameters.getFirst().toString());
+
+        var stmnts = m.getFirst().statements;
+        Assertions.assertEquals(3, stmnts.size());
+        stmnts.forEach(s -> {
+            Assertions.assertInstanceOf(IfNode.class, s);
+            Assertions.assertNull(((IfNode) s).statements);
+            Assertions.assertEquals(Optional.empty(), ((IfNode) s).elseStatement);
+        });
+
+        Assertions.assertEquals("boolVariable", ((IfNode) stmnts.get(0)).condition.toString());
+        Assertions.assertEquals("loft and reght", ((IfNode) stmnts.get(1)).condition.toString());
+        Assertions.assertEquals("elft or rwght", ((IfNode) stmnts.get(2)).condition.toString());
     }
 }

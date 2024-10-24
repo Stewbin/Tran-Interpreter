@@ -204,22 +204,25 @@ public class Parser {
             var constructor = parseConstructor();
             if (constructor.isPresent()) {
                 classNode.constructors.add(constructor.get());
-                // Newline
-                requireNewLine();
+                // Newline needed only if body was not found
+                if (constructor.get().statements.isEmpty())
+                    requireNewLine();
             }
             // Fields
             var field = parseField();
             if (field.isPresent()) {
                 classNode.members.add(field.get());
-                // Newline
-                requireNewLine();
+                // Newline needed only if body was not found
+                if (field.get().mutator.isEmpty() && field.get().accessor.isEmpty())
+                    requireNewLine();
             }
             // Methods
             var method = parseMethodDeclaration();
             if (method.isPresent()) {
                 classNode.methods.add(method.get());
-                // Newline
-                requireNewLine();
+                // Newline needed only if body was not found
+                if (method.get().statements.isEmpty())
+                    requireNewLine();
             }
 
             if (tokenManager.done())
@@ -383,9 +386,9 @@ public class Parser {
         if (maybeMethodCallExp.isPresent()) return Optional.of(new MethodCallStatementNode(maybeMethodCallExp.get()));
 
         // Check if it's a multi-assignment MethodCall e.g. "x, y, z = myMethod()\n"
-        if (tokenManager.nextTwoTokensMatch(Token.TokenTypes.WORD, Token.TokenTypes.COMMA)) {
+        if (tokenManager.nextTwoTokensMatch(Token.TokenTypes.WORD, Token.TokenTypes.COMMA))
             return parseMethodCallStatement();
-        }
+
         // If not, then it may or may not be an Assignment
         return parseAssignment(); // parseAssignment() already handles if it's not a valid statement
     }
@@ -463,10 +466,22 @@ public class Parser {
 
         // While DEDENT not found
         while (tokenManager.matchAndRemove(Token.TokenTypes.DEDENT).isEmpty()) {
-            // Add statement to list
-            parseStatement().ifPresent(statements::add);
-            // Newline
-            requireNewLine();
+            var statement = parseStatement();
+            if (statement.isPresent()) {
+                // Add statement to list
+                statements.add(statement.get());
+
+                // Newline needed only if statements have no body
+                // Only statements w/ bodies are If and Loop
+                if (statement.get() instanceof IfNode ifNode) {
+                    if (ifNode.statements.isEmpty()) requireNewLine();
+                } else if (statement.get() instanceof LoopNode loopNode) {
+                    if (loopNode.statements.isEmpty()) requireNewLine();
+                } else
+                    requireNewLine();
+            }
+
+
 
             // If at end of tokens, and still no Dedent
             if (tokenManager.done())
@@ -476,8 +491,8 @@ public class Parser {
         return Optional.of(statements);
     }
 
-    // BoolExpTerm = BoolExpFactor {("and"|"or") BoolExpTerm} | "not" BoolExpTerm
-    private Optional<ExpressionNode> parseBoolExpTerm() throws SyntaxErrorException {
+    // BoolExpTerm = BoolExpFactor {("and"|"or") BoolExpFactor} | "not" BoolExpTerm
+    private Optional<? extends ExpressionNode> parseBoolExpTerm() throws SyntaxErrorException {
         // Unary Operator Case //
         // "not"
         if (tokenManager.matchAndRemove(Token.TokenTypes.NOT).isPresent()) {
@@ -490,44 +505,44 @@ public class Parser {
         }
 
         // Binary Operator Case //
-        var boolOpNode = new BooleanOpNode();
         // L = BoolExpFactor()
-        var boolFactor = parseBoolExpFactor();
-        if (boolFactor.isEmpty())
+        var left = parseBoolExpFactor();
+        if (left.isEmpty())
             return Optional.empty();
-        boolOpNode.left = boolFactor.get();
 
         // Get operator
-        var operator = tokenManager.matchAndRemove(Token.TokenTypes.AND)
-                .or(() -> tokenManager.matchAndRemove(Token.TokenTypes.OR))
-                .map(Token::getType);
+        var operator = parseBoolOperator(); // "and" | "or"
         // While (next = "and" or "or")...
         while (operator.isPresent()) {
-            // "and" | "or"
-            if (operator.get() == Token.TokenTypes.AND)
-                boolOpNode.op = BooleanOpNode.BooleanOperations.and;
-            else
-                boolOpNode.op = BooleanOpNode.BooleanOperations.or;
-
             // R = BoolExpTerm()
-            boolOpNode.right = parseBoolExpTerm().orElseThrow(
-                    () -> new SyntaxErrorException("BoolTerm expected after operator", tokenManager.getCurrentLine(), tokenManager.getCurrentColumnNumber())
-            );
-            // Make new operation node, and copy over everything
-            var boolOpCopy = new BooleanOpNode();
-            boolOpCopy.left = boolOpNode.left;
-            boolOpCopy.op = boolOpNode.op;
-            boolOpCopy.right = boolOpNode.right;
-            // L = this new node
-            boolOpNode.left = boolOpCopy;
+            var right = parseBoolExpFactor();
+            if (right.isEmpty())
+                    throw new SyntaxErrorException("BoolTerm expected after operator", tokenManager.getCurrentLine(), tokenManager.getCurrentColumnNumber());
 
-            // Get operator
-            operator = tokenManager.matchAndRemove(Token.TokenTypes.AND)
-                    .or(() -> tokenManager.matchAndRemove(Token.TokenTypes.OR))
-                    .map(Token::getType);
+            // Make new operation node, and copy over everything
+            var boolTerm = new BooleanOpNode();
+            boolTerm.left = left.get();
+            boolTerm.op = operator.get();
+            boolTerm.right = right.get();
+
+            // L = this new node
+            left = Optional.of(boolTerm); // Wrap in optional before sending
+
+            // Get next operator
+            operator = parseBoolOperator();
         }
 
-        return Optional.of(boolOpNode);
+        return left;
+    }
+
+    private Optional<BooleanOpNode.BooleanOperations> parseBoolOperator() {
+        return tokenManager.matchAndRemove(Token.TokenTypes.AND)
+                .or(() -> tokenManager.matchAndRemove(Token.TokenTypes.OR))
+                .map(t -> switch (t.getType()) {
+                    case AND -> BooleanOpNode.BooleanOperations.and;
+                    case OR -> BooleanOpNode.BooleanOperations.or;
+                    default -> null;
+                });
     }
 
     // BoolExpFactor = MethodCallExpression | Comparison | VariableReference
@@ -590,8 +605,8 @@ public class Parser {
         }
         return Optional.empty();
     }
-    // Assignment = VariableReference "=" Expression
 
+    // Assignment = VariableReference "=" Expression
     private Optional<AssignmentNode> parseAssignment() throws SyntaxErrorException {
         var assignmentNode = new AssignmentNode();
 
@@ -653,6 +668,7 @@ public class Parser {
     // MethodCallExpression = [Identifier "."] Identifier "(" [Expression {"," Expression }] ")"
     private Optional<MethodCallExpressionNode> parseMethodCallExpression() throws SyntaxErrorException {
         var methodCallExp = new MethodCallExpressionNode(); // Make node
+        methodCallExp.objectName = Optional.empty(); // Fix objectName is originally null in class implementation
 
         // Optional caller object e.g. "myObj.method();"
         if (tokenManager.nextTwoTokensMatch(Token.TokenTypes.WORD, Token.TokenTypes.DOT))
@@ -661,7 +677,7 @@ public class Parser {
         // Method name
         if (!tokenManager.nextTwoTokensMatch(Token.TokenTypes.WORD, Token.TokenTypes.LPAREN)) {
             // Method was not found, nor object => not a method
-            if (methodCallExp.objectName == null || methodCallExp.objectName.isEmpty())
+            if (methodCallExp.objectName.isEmpty())
                 return Optional.empty();
             // Object found, but no method
             else
@@ -696,8 +712,8 @@ public class Parser {
     }
 
     // Expression = Term { ("+"|"-") Term }
-    private Optional<MathOpNode> parseExpression() {
-        return Optional.empty();
+    private Optional<? extends ExpressionNode> parseExpression() {
+        return parseVariableReference();
     }
 
     // Term = Factor { ("*"|"/"|"%") Factor }
@@ -729,7 +745,7 @@ public class Parser {
         return Optional.of(termNode);
     }
 
-    private Optional<MathOpNode.MathOperations> parseMathOperator() throws SyntaxErrorException {
+    private Optional<MathOpNode.MathOperations> parseMathOperator() {
         return tokenManager.peek(0)
                 .map(token -> switch (token.getType()) {
                     case PLUS -> MathOpNode.MathOperations.add;
@@ -782,7 +798,7 @@ public class Parser {
     }
 
     // NumberLiteral = { 0-9 } [. { 0-9 }]
-    private Optional<NumericLiteralNode> parseNumberLiteral() throws SyntaxErrorException {
+    private Optional<NumericLiteralNode> parseNumberLiteral() {
         var numLit = tokenManager.matchAndRemove(Token.TokenTypes.NUMBER).map(Token::getValue);
         if (numLit.isEmpty())
             return Optional.empty();
@@ -792,7 +808,7 @@ public class Parser {
     }
 
     // StringLiteral = " { any non-" } "
-    private Optional<StringLiteralNode> parseStringLiteral() throws SyntaxErrorException {
+    private Optional<StringLiteralNode> parseStringLiteral() {
         var strLit = tokenManager.matchAndRemove(Token.TokenTypes.QUOTEDSTRING).map(Token::getValue);
         if (strLit.isEmpty())
             return Optional.empty();
@@ -802,7 +818,7 @@ public class Parser {
     }
 
     // CharacterLiteral = ' (one character not a ') '
-    private Optional<CharLiteralNode> parseCharLiteral() throws SyntaxErrorException {
+    private Optional<CharLiteralNode> parseCharLiteral() {
         var charLit = tokenManager.matchAndRemove(Token.TokenTypes.QUOTEDCHARACTER).map(Token::getValue);
         if (charLit.isEmpty())
             return Optional.empty();
