@@ -1,5 +1,6 @@
 import AST.*;
 
+import javax.swing.text.html.Option;
 import java.util.*;
 
 public class Parser {
@@ -489,22 +490,10 @@ public class Parser {
         return Optional.of(statements);
     }
 
-    // BoolExpTerm = BoolExpFactor {("and"|"or") BoolExpFactor} | "not" BoolExpTerm
+    // BoolExpTerm = BoolExpFactor {("and"|"or") BoolExpFactor}
     private Optional<? extends ExpressionNode> parseBoolExpTerm() throws SyntaxErrorException {
-        // Unary Operator Case //
-        // "not"
-        if (tokenManager.matchAndRemove(Token.TokenTypes.NOT).isPresent()) {
-            var notOpNode = new NotOpNode();
-            // BoolExpTerm
-            notOpNode.left = parseBoolExpTerm().orElseThrow(
-                    () -> new SyntaxErrorException("BoolTerm expected after 'not'", tokenManager.getCurrentLine(), tokenManager.getCurrentColumnNumber())
-            );
-            return Optional.of(notOpNode);
-        }
-
-        // Binary Operator Case //
         // L = BoolExpFactor()
-        var left = parseBoolExpFactor();
+        var left = parseUnaryBoolFactor();
         if (left.isEmpty())
             return Optional.empty();
 
@@ -512,7 +501,7 @@ public class Parser {
         var operator = parseBoolOperator(); // "and" | "or"
         // While (next = "and" or "or")...
         while (operator.isPresent()) {
-            // R = BoolExpTerm()
+            // R = BoolExpFactor()
             var right = parseBoolExpFactor();
             if (right.isEmpty())
                     throw new SyntaxErrorException("BoolTerm expected after operator", tokenManager.getCurrentLine(), tokenManager.getCurrentColumnNumber());
@@ -543,14 +532,38 @@ public class Parser {
                 });
     }
 
-    // BoolExpFactor = MethodCallExpression | Comparison | VariableReference
+    // UnaryBoolFactor (Unofficial) = BoolExpFactor | ( "not" UnaryBoolFactor )
+    // Needed to make negation higher priority than "and"/"or" but lower than comparisons
+    private Optional<? extends ExpressionNode> parseUnaryBoolFactor() throws SyntaxErrorException {
+        if (tokenManager.matchAndRemove(Token.TokenTypes.NOT).isPresent()) {
+            var notOpNode = new NotOpNode();
+            notOpNode.left = parseUnaryBoolFactor().orElseThrow(
+                    () -> new SyntaxErrorException("BoolFactor expected after 'not'", tokenManager.getCurrentLine(), tokenManager.getCurrentColumnNumber())
+            );
+            return Optional.of(notOpNode);
+        }
+        // Base case: No "not"'s
+        return parseBoolExpFactor();
+    }
+
+    // BoolExpFactor = MethodCallExpression | Comparison | VariableReference | ( "(" BoolExpTerm ")" )
     private Optional<? extends ExpressionNode> parseBoolExpFactor() throws SyntaxErrorException {
+        // "(" BoolExpTerm ")"//
+        if (tokenManager.matchAndRemove(Token.TokenTypes.LPAREN).isPresent()) { // Lparen "("
+            // BoolExpTerm
+            var boolExpTerm = parseBoolExpTerm();
+            // Rparen ")"
+            if (tokenManager.matchAndRemove(Token.TokenTypes.RPAREN).isEmpty())
+                throw new SyntaxErrorException("Rparen expected", tokenManager.getCurrentLine(), tokenManager.getCurrentColumnNumber());
+
+            if (boolExpTerm.isPresent()) return boolExpTerm;
+        }
         // Method Call
         var methodCall = parseMethodCallExpression();
-        if (methodCall.isPresent()) {return methodCall;}
+        if (methodCall.isPresent()) return methodCall;
         // Comparison
         var comparison = parseComparison();
-        if (comparison.isPresent()) {return comparison;}
+        if (comparison.isPresent()) return comparison;
         // Variable Reference
         return parseVariableReference();
         // If not BoolExp at all, returns Optional.empty()
@@ -643,6 +656,9 @@ public class Parser {
                         )
                 );
             }
+            // "="
+            if (tokenManager.matchAndRemove(Token.TokenTypes.ASSIGN).isEmpty())
+                throw new SyntaxErrorException("Assignment operator expected", tokenManager.getCurrentLine(), tokenManager.getCurrentColumnNumber());
         }
 
         // MethodCallExpression

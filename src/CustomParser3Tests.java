@@ -127,6 +127,13 @@ public class CustomParser3Tests {
         Assertions.assertEquals("boolVariable", ((IfNode) stmnts.get(0)).condition.toString());
         Assertions.assertEquals("loft and reght", ((IfNode) stmnts.get(1)).condition.toString());
         Assertions.assertEquals("elft or rwght", ((IfNode) stmnts.get(2)).condition.toString());
+        Assertions.assertEquals("a > b", ((IfNode) stmnts.get(3)).condition.toString());
+        Assertions.assertEquals("a < b", ((IfNode) stmnts.get(4)).condition.toString());
+        Assertions.assertEquals("a == b", ((IfNode) stmnts.get(5)).condition.toString());
+        Assertions.assertEquals("a <= b", ((IfNode) stmnts.get(6)).condition.toString());
+        Assertions.assertEquals("a >= b", ((IfNode) stmnts.get(7)).condition.toString());
+
+
     }
 
     @Test
@@ -143,10 +150,14 @@ public class CustomParser3Tests {
         Assertions.assertEquals(1, t.Classes.getFirst().methods.getFirst().statements.size());
 
         var s = (IfNode) t.Classes.getFirst().methods.getFirst().statements.getFirst();
+
+//        System.out.println(((NotOpNode) s.condition).left); // s.condition is a NotOpNode for some reason?!
+
         var cond = ((BooleanOpNode) s.condition);
         Assertions.assertEquals(BooleanOpNode.BooleanOperations.and, cond.op);
-        Assertions.assertEquals("not victim dead", cond.left.toString());
+        Assertions.assertInstanceOf(NotOpNode.class, cond.left);
+        Assertions.assertEquals("not victimDead", cond.left.toString());
         Assertions.assertEquals("hasMoney", cond.right.toString());
-        Assertions.assertEquals("stealMoney()", s.statements.getFirst().toString());
+        Assertions.assertEquals("stealMoney ()", s.statements.getFirst().toString());
     }
 }
