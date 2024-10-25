@@ -1,8 +1,6 @@
 import AST.*;
 
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 
 public class Parser {
     private final TranNode tranNode;
@@ -559,7 +557,7 @@ public class Parser {
     }
 
     // Comparison (Unofficial) = (Expression ( "==" | "!=" | "<=" | ">=" | ">" | "<" ) Expression)
-    private Optional<CompareNode> parseComparison() throws SyntaxErrorException {
+    private Optional<? extends ExpressionNode> parseComparison() throws SyntaxErrorException {
         var comparison = new CompareNode();
         // Left Expression
         var lexp = parseExpression();
@@ -580,7 +578,7 @@ public class Parser {
             comparison.op = CompareNode.CompareOperations.lt;
         } else {
             // If no operator found
-            return Optional.empty();
+            return lexp; // Return whatever lexp is
         }
         // Only after operator found, are we sure this is a Comparison
         comparison.left = lexp.get();

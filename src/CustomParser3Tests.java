@@ -128,4 +128,25 @@ public class CustomParser3Tests {
         Assertions.assertEquals("loft and reght", ((IfNode) stmnts.get(1)).condition.toString());
         Assertions.assertEquals("elft or rwght", ((IfNode) stmnts.get(2)).condition.toString());
     }
+
+    @Test
+    public void simpleNotOperatorTest() throws Exception {
+        var t = LexAndParse(
+                "class Criminal\n" +
+                        "\tmethod()\n" +
+                        "\t\tif !victimDead && hasMoney\n" +
+                        "\t\t\tstealMoney()\n"
+        );
+
+        Assertions.assertEquals(1, t.Classes.size());
+        Assertions.assertEquals(1, t.Classes.getFirst().methods.size());
+        Assertions.assertEquals(1, t.Classes.getFirst().methods.getFirst().statements.size());
+
+        var s = (IfNode) t.Classes.getFirst().methods.getFirst().statements.getFirst();
+        var cond = ((BooleanOpNode) s.condition);
+        Assertions.assertEquals(BooleanOpNode.BooleanOperations.and, cond.op);
+        Assertions.assertEquals("not victim dead", cond.left.toString());
+        Assertions.assertEquals("hasMoney", cond.right.toString());
+        Assertions.assertEquals("stealMoney()", s.statements.getFirst().toString());
+    }
 }

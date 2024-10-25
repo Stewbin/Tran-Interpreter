@@ -127,7 +127,9 @@ public class Parser3Tests
         Assertions.assertInstanceOf(IfNode.class, myMethod.statements.getFirst());
         Assertions.assertEquals("n > b", ((BooleanOpNode) ((BooleanOpNode) ((IfNode) myMethod.statements.getFirst()).condition).left).left.toString());
         Assertions.assertEquals("n != a", ((BooleanOpNode) ((BooleanOpNode) ((IfNode) myMethod.statements.getFirst()).condition).left).right.toString());
+        Assertions.assertEquals("n == b", ((BooleanOpNode) ((IfNode) myMethod.statements.getFirst()).condition).right.toString());
 
+        // EBNF accurate tree
 //        Assertions.assertEquals("n > b", ((BooleanOpNode) ((IfNode) myMethod.statements.getFirst()).condition).left.toString());
 //        Assertions.assertEquals("n != a", ((BooleanOpNode) ((BooleanOpNode) ((IfNode) myMethod.statements.getFirst()).condition).right).left.toString());
 //        Assertions.assertEquals("n == b", ((BooleanOpNode) ((BooleanOpNode) ((IfNode) myMethod.statements.getFirst()).condition).right).right.toString());
