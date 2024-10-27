@@ -104,8 +104,10 @@ public class CustomParser3Tests {
                         "\t\tif a >= b\n" +
                         "\t\tif a != b\n" +
                         "\t\tif a < b and b < c\n" +
-                        "\t\tif b >= a and c <= b\n" +
+                        "\t\tif b >= a or c <= b\n" +
                         "\t\tif a == b and not c > b\n" +
+                        "\t\tif not a == b and c > b\n" +
+                        "\t\tif not not p\n" +
                         "\t\tif not not a != c and not not c > b\n"
         );
 
@@ -117,7 +119,7 @@ public class CustomParser3Tests {
         Assertions.assertEquals("string x", m.getFirst().parameters.getFirst().toString());
 
         var stmnts = m.getFirst().statements;
-        Assertions.assertEquals(3, stmnts.size());
+        Assertions.assertEquals(15, stmnts.size());
         stmnts.forEach(s -> {
             Assertions.assertInstanceOf(IfNode.class, s);
             Assertions.assertNull(((IfNode) s).statements);
@@ -132,8 +134,22 @@ public class CustomParser3Tests {
         Assertions.assertEquals("a == b", ((IfNode) stmnts.get(5)).condition.toString());
         Assertions.assertEquals("a <= b", ((IfNode) stmnts.get(6)).condition.toString());
         Assertions.assertEquals("a >= b", ((IfNode) stmnts.get(7)).condition.toString());
-
-
+        Assertions.assertEquals("a != b", ((IfNode) stmnts.get(8)).condition.toString());
+        Assertions.assertEquals(BooleanOpNode.BooleanOperations.and, ((BooleanOpNode) ((IfNode) stmnts.get(9)).condition).op);
+        Assertions.assertEquals("a < b", ((BooleanOpNode) ((IfNode) stmnts.get(9)).condition).left.toString());
+        Assertions.assertEquals("b < c", ((BooleanOpNode) ((IfNode) stmnts.get(9)).condition).right.toString());
+        Assertions.assertInstanceOf(BooleanOpNode.class, ((IfNode) stmnts.get(10)).condition);
+        Assertions.assertEquals("b >= a or c <= b", ((IfNode) stmnts.get(10)).condition.toString());
+        Assertions.assertEquals(BooleanOpNode.BooleanOperations.and, ((BooleanOpNode) ((IfNode) stmnts.get(11)).condition).op);
+        Assertions.assertEquals("a == b", ((BooleanOpNode) ((IfNode) stmnts.get(11)).condition).left.toString());
+        Assertions.assertEquals("not c > b", ((BooleanOpNode) ((IfNode) stmnts.get(11)).condition).right.toString());
+        Assertions.assertInstanceOf(BooleanOpNode.class, ((IfNode) stmnts.get(12)).condition);
+        Assertions.assertEquals(BooleanOpNode.BooleanOperations.and, ((BooleanOpNode) ((IfNode) stmnts.get(12)).condition).op);
+        Assertions.assertEquals("c > b", ((BooleanOpNode) ((IfNode) stmnts.get(12)).condition).right.toString());
+        Assertions.assertEquals("not a == b", ((BooleanOpNode) ((IfNode) stmnts.get(12)).condition).left.toString());
+        Assertions.assertEquals("not not p", ((IfNode) stmnts.get(13)).condition.toString());
+        Assertions.assertEquals("not not a != c", ((BooleanOpNode) ((IfNode) stmnts.get(14)).condition).left.toString());
+        Assertions.assertEquals("not not c > b", ((BooleanOpNode) ((IfNode) stmnts.get(14)).condition).right.toString());
     }
 
     @Test

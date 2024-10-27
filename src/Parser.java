@@ -1,6 +1,5 @@
 import AST.*;
 
-import javax.swing.text.html.Option;
 import java.util.*;
 
 public class Parser {
@@ -25,9 +24,6 @@ public class Parser {
             // Interface
             else if (token.get().getType() == Token.TokenTypes.INTERFACE)
                 parseInterface().ifPresent(tranNode.Interfaces::add);
-            // Consume Empty-Space between classes & interfaces
-//            else
-//                tokenManager.matchAndRemove(Token.TokenTypes.NEWLINE);
         }
     }
 
@@ -423,7 +419,7 @@ public class Parser {
         return Optional.of(loopNode);
     }
 
-    // "if" BoolExp NEWLINE Statements ["else" NEWLINE (Statement | Statements)]
+    // "if" BoolExp NEWLINE Statements ["else" If | (NEWLINE Statements)]
     private Optional<IfNode> parseIfStatement() throws SyntaxErrorException {
         var ifNode = new IfNode();
 
@@ -438,20 +434,27 @@ public class Parser {
             tokenManager.matchAndRemove(Token.TokenTypes.NEWLINE);
             // Body (Statements)
             parseStatementBlock().ifPresent(statements -> ifNode.statements = statements);
-//                .orElseThrow(() -> new SyntaxErrorException("Body expected in if-statement", tokenManager.getCurrentLine(), tokenManager.getCurrentColumnNumber()));
         }
 
-        // Else-Statement
         if (tokenManager.matchAndRemove(Token.TokenTypes.ELSE).isPresent()) {
-            var elseNode = new ElseNode(); // Make elseNode
-            // Newline
-            requireNewLine();
-            // Statement(s)
-            elseNode.statements = parseStatementBlock().orElse(null);
-//                    .orElseThrow(() -> new SyntaxErrorException("Body expected in else-statement", tokenManager.getCurrentLine(), tokenManager.getCurrentColumnNumber()));
-            ifNode.elseStatement = Optional.of(elseNode); // Add elseNode to ifNode
-        } else 
-            ifNode.elseStatement = Optional.empty(); // Allows toString to work on else-less IfNode
+            // Make elseNode
+            var elseNode = new ElseNode();
+            elseNode.statements = new LinkedList<>();
+            // Else-If branch
+            parseIfStatement().ifPresent(elseNode.statements::add);
+            // Else branch
+            // Only add if no Else-If branch already
+            if (elseNode.statements.isEmpty()) {
+                // Newline
+                requireNewLine();
+                // Statements
+                parseStatementBlock().ifPresent(statements -> elseNode.statements = statements);
+            }
+            // Add elseNode to ifNode
+            ifNode.elseStatement = Optional.of(elseNode);
+        } else {
+            ifNode.elseStatement = Optional.empty();
+        }
 
         return Optional.of(ifNode);
     }
@@ -471,16 +474,15 @@ public class Parser {
                 statements.add(statement.get());
 
                 // Newline needed only if statements have no body
-                // Only statements w/ bodies are If and Loop
                 if (statement.get() instanceof IfNode ifNode) {
                     if (ifNode.statements.isEmpty()) requireNewLine();
                 } else if (statement.get() instanceof LoopNode loopNode) {
                     if (loopNode.statements.isEmpty()) requireNewLine();
-                } else
+                // Only statements w/ bodies are If and Loop
+                } else {
                     requireNewLine();
+                }
             }
-
-
 
             // If at end of tokens, and still no Dedent
             if (tokenManager.done())
@@ -493,7 +495,7 @@ public class Parser {
     // BoolExpTerm = BoolExpFactor {("and"|"or") BoolExpFactor}
     private Optional<? extends ExpressionNode> parseBoolExpTerm() throws SyntaxErrorException {
         // L = BoolExpFactor()
-        var left = parseUnaryBoolFactor();
+        var left = parseUnaryBoolTerm();
         if (left.isEmpty())
             return Optional.empty();
 
@@ -502,7 +504,7 @@ public class Parser {
         // While (next = "and" or "or")...
         while (operator.isPresent()) {
             // R = BoolExpFactor()
-            var right = parseBoolExpFactor();
+            var right = parseUnaryBoolTerm();
             if (right.isEmpty())
                     throw new SyntaxErrorException("BoolTerm expected after operator", tokenManager.getCurrentLine(), tokenManager.getCurrentColumnNumber());
 
@@ -533,11 +535,11 @@ public class Parser {
     }
 
     // UnaryBoolFactor (Unofficial) = BoolExpFactor | ( "not" UnaryBoolFactor )
-    // Needed to make negation higher priority than "and"/"or" but lower than comparisons
-    private Optional<? extends ExpressionNode> parseUnaryBoolFactor() throws SyntaxErrorException {
+    // Needed to make negation higher priority than "and"/"or", but lower priority than comparisons
+    private Optional<? extends ExpressionNode> parseUnaryBoolTerm() throws SyntaxErrorException {
         if (tokenManager.matchAndRemove(Token.TokenTypes.NOT).isPresent()) {
             var notOpNode = new NotOpNode();
-            notOpNode.left = parseUnaryBoolFactor().orElseThrow(
+            notOpNode.left = parseUnaryBoolTerm().orElseThrow(
                     () -> new SyntaxErrorException("BoolFactor expected after 'not'", tokenManager.getCurrentLine(), tokenManager.getCurrentColumnNumber())
             );
             return Optional.of(notOpNode);
@@ -574,7 +576,8 @@ public class Parser {
         var comparison = new CompareNode();
         // Left Expression
         var lexp = parseExpression();
-        if (lexp.isEmpty()) return Optional.empty(); // Tokens are not a Comparison
+        if (lexp.isEmpty()) // Tokens are not a Comparison
+            return Optional.empty();
 
         // Operators
         if (tokenManager.matchAndRemove(Token.TokenTypes.EQUAL).isPresent()) {
@@ -726,23 +729,43 @@ public class Parser {
     }
 
     // Expression = Term { ("+"|"-") Term }
-    private Optional<? extends ExpressionNode> parseExpression() {
-        return parseVariableReference();
+    private Optional<? extends ExpressionNode> parseExpression() throws SyntaxErrorException {
+        var left = parseTerm();
+        // Not an Expression
+        if (left.isEmpty())
+            return Optional.empty();
+
+        // While operator = + | -
+        var operator = parseMathOperator(false);
+        while (operator.isPresent()) {
+            // R = Term()
+            var right = parseTerm().orElseThrow(
+                    () -> new SyntaxErrorException("Term expected after operator", tokenManager.getCurrentLine(), tokenManager.getCurrentColumnNumber())
+            );
+            // Make new MathOpNode with current operation & copy over everything
+            var newOpNode = new MathOpNode();
+            newOpNode.left = left.get();
+            newOpNode.op = operator.get();
+            newOpNode.right = right;
+            // Left = this new node
+            left = Optional.of(newOpNode);
+            // Get next operator
+            operator = parseMathOperator(false);
+        }
+        return left;
     }
 
     // Term = Factor { ("*"|"/"|"%") Factor }
-    private Optional<MathOpNode> parseTerm() throws SyntaxErrorException {
+    private Optional<? extends ExpressionNode> parseTerm() throws SyntaxErrorException {
         var left = parseFactor();
         // Not a Term
         if (left.isEmpty())
             return Optional.empty();
 
-        var termNode = new MathOpNode();
-        termNode.left = left.get();
-
-        // While operator = * or / or %
-        var operator = parseMathOperator();
+        // While operator = * | / | %
+        var operator = parseMathOperator(true);
         while (operator.isPresent()) {
+            // R = Factor()
             var right = parseFactor().orElseThrow(
                     () -> new SyntaxErrorException("Factor expected after operator", tokenManager.getCurrentLine(), tokenManager.getCurrentColumnNumber())
             );
@@ -751,24 +774,29 @@ public class Parser {
             newOpNode.left = left.get();
             newOpNode.op = operator.get();
             newOpNode.right = right;
-            // Left = this new node
-            termNode.left = newOpNode;
+            // L = this new node
+            left = Optional.of(newOpNode);
             // Get next operator
-            operator = parseMathOperator();
+            operator = parseMathOperator(true);
         }
-        return Optional.of(termNode);
+        return left;
     }
 
-    private Optional<MathOpNode.MathOperations> parseMathOperator() {
-        return tokenManager.peek(0)
-                .map(token -> switch (token.getType()) {
-                    case PLUS -> MathOpNode.MathOperations.add;
-                    case MINUS -> MathOpNode.MathOperations.subtract;
-                    case TIMES -> MathOpNode.MathOperations.multiply;
-                    case DIVIDE -> MathOpNode.MathOperations.divide;
-                    case MODULO -> MathOpNode.MathOperations.modulo;
-                    default -> null;
-                });
+    private Optional<MathOpNode.MathOperations> parseMathOperator(boolean isPlusMinusOnly) {
+        if (isPlusMinusOnly) {
+            if (tokenManager.matchAndRemove(Token.TokenTypes.PLUS).isPresent())
+                return Optional.of(MathOpNode.MathOperations.add);
+            if (tokenManager.matchAndRemove(Token.TokenTypes.MINUS).isPresent())
+                return Optional.of(MathOpNode.MathOperations.subtract);
+        } else {
+            if (tokenManager.matchAndRemove(Token.TokenTypes.TIMES).isPresent())
+                return Optional.of(MathOpNode.MathOperations.multiply);
+            if (tokenManager.matchAndRemove(Token.TokenTypes.DIVIDE).isPresent())
+                return Optional.of(MathOpNode.MathOperations.divide);
+            if (tokenManager.matchAndRemove(Token.TokenTypes.MODULO).isPresent())
+                return Optional.of(MathOpNode.MathOperations.modulo);
+        }
+        return Optional.empty();
     }
 
     // Factor = NumberLiteral | VariableReference | "true" | "false" | StringLiteral | CharacterLiteral | MethodCallExpression
