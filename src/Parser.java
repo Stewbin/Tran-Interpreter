@@ -233,11 +233,11 @@ public class Parser {
     private Optional<MemberNode> parseField() throws SyntaxErrorException {
         var fieldNode = new MemberNode();
 
-        // Declaration
-        var maybeDeclaration = parseVariableDeclaration();
-        if (maybeDeclaration.isEmpty())
+        // VariableDeclaration is field name and type e.g. "number listSize"
+        var nameAndType = parseVariableDeclaration();
+        if (nameAndType.isEmpty())
             return Optional.empty();
-        fieldNode.declaration = maybeDeclaration.get();
+        fieldNode.declaration = nameAndType.get();
 
         // If accessors/mutators present, they need to be in their own block
         // NewLine, Indent
@@ -378,7 +378,8 @@ public class Parser {
     private Optional<? extends StatementNode> disambiguateStatements() throws SyntaxErrorException {
         // Handle void method calls, e.g. "myMethod()\n"
         var maybeMethodCallExp = parseMethodCallExpression();
-        if (maybeMethodCallExp.isPresent()) return Optional.of(new MethodCallStatementNode(maybeMethodCallExp.get()));
+        if (maybeMethodCallExp.isPresent())
+            return Optional.of(new MethodCallStatementNode(maybeMethodCallExp.get()));
 
         // Check if it's a multi-assignment MethodCall e.g. "x, y, z = myMethod()\n"
         if (tokenManager.nextTwoTokensMatch(Token.TokenTypes.WORD, Token.TokenTypes.COMMA))
@@ -736,7 +737,7 @@ public class Parser {
             return Optional.empty();
 
         // While operator = + | -
-        var operator = parseMathOperator(false);
+        var operator = parseExpOperator();
         while (operator.isPresent()) {
             // R = Term()
             var right = parseTerm().orElseThrow(
@@ -750,7 +751,7 @@ public class Parser {
             // Left = this new node
             left = Optional.of(newOpNode);
             // Get next operator
-            operator = parseMathOperator(false);
+            operator = parseExpOperator();
         }
         return left;
     }
@@ -763,7 +764,7 @@ public class Parser {
             return Optional.empty();
 
         // While operator = * | / | %
-        var operator = parseMathOperator(true);
+        var operator = parseTermOperator();
         while (operator.isPresent()) {
             // R = Factor()
             var right = parseFactor().orElseThrow(
@@ -777,37 +778,36 @@ public class Parser {
             // L = this new node
             left = Optional.of(newOpNode);
             // Get next operator
-            operator = parseMathOperator(true);
+            operator = parseTermOperator();
         }
         return left;
     }
 
-    private Optional<MathOpNode.MathOperations> parseMathOperator(boolean isPlusMinusOnly) {
-        if (isPlusMinusOnly) {
+    private Optional<MathOpNode.MathOperations> parseExpOperator() {
             if (tokenManager.matchAndRemove(Token.TokenTypes.PLUS).isPresent())
                 return Optional.of(MathOpNode.MathOperations.add);
             if (tokenManager.matchAndRemove(Token.TokenTypes.MINUS).isPresent())
                 return Optional.of(MathOpNode.MathOperations.subtract);
-        } else {
-            if (tokenManager.matchAndRemove(Token.TokenTypes.TIMES).isPresent())
-                return Optional.of(MathOpNode.MathOperations.multiply);
-            if (tokenManager.matchAndRemove(Token.TokenTypes.DIVIDE).isPresent())
-                return Optional.of(MathOpNode.MathOperations.divide);
-            if (tokenManager.matchAndRemove(Token.TokenTypes.MODULO).isPresent())
-                return Optional.of(MathOpNode.MathOperations.modulo);
-        }
+            return Optional.empty();
+    }
+
+    private Optional<MathOpNode.MathOperations> parseTermOperator() {
+        if (tokenManager.matchAndRemove(Token.TokenTypes.TIMES).isPresent())
+            return Optional.of(MathOpNode.MathOperations.multiply);
+        if (tokenManager.matchAndRemove(Token.TokenTypes.DIVIDE).isPresent())
+            return Optional.of(MathOpNode.MathOperations.divide);
+        if (tokenManager.matchAndRemove(Token.TokenTypes.MODULO).isPresent())
+            return Optional.of(MathOpNode.MathOperations.modulo);
+
         return Optional.empty();
     }
 
-    // Factor = NumberLiteral | VariableReference | "true" | "false" | StringLiteral | CharacterLiteral | MethodCallExpression
-    // | "(" Expression ")" | Instantiation
+    // Factor = NumberLiteral | "true" | "false" | StringLiteral | CharacterLiteral | MethodCallExpression
+    // | "(" Expression ")" | Instantiation | VariableReference
     private Optional<? extends ExpressionNode> parseFactor() throws SyntaxErrorException {
         Optional<? extends ExpressionNode> retVal;
         // NumberLiteral
         retVal = parseNumberLiteral();
-        if (retVal.isPresent()) return retVal;
-        // VariableReference
-        retVal = parseVariableReference();
         if (retVal.isPresent()) return retVal;
         // "true'
         if (tokenManager.matchAndRemove(Token.TokenTypes.TRUE).isPresent())
@@ -836,6 +836,9 @@ public class Parser {
         if (retVal.isPresent()) return retVal;
         // (Object) Instantiation
         retVal = parseInstantiation();
+        if (retVal.isPresent()) return retVal;
+        // VariableReference
+        retVal = parseVariableReference();
         return retVal; // If empty, return the empty
     }
 
