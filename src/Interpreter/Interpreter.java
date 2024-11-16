@@ -17,6 +17,7 @@ public class Interpreter {
      * @param top - the head of the AST
      */
     public Interpreter(TranNode top) {
+        this.top = top;
     }
 
     /**
@@ -28,6 +29,14 @@ public class Interpreter {
      * Throw an exception if no such method exists.
      */
     public void start() {
+        // Find 'start' method
+        var start = top.Classes.stream()
+                .flatMap(classNode -> classNode.methods.stream())
+                .filter(method -> method.name.equals("start") && method.isShared && !method.isPrivate)
+                .findFirst();
+        if (start.isEmpty())
+            throw new RuntimeException("No 'start' method found");
+        interpretMethodCall(Optional.empty(), start.get(), new LinkedList<InterpreterDataType>());
     }
 
     //              Running Methods
@@ -155,26 +164,44 @@ public class Interpreter {
      * @return a value
      */
     private InterpreterDataType evaluate(HashMap<String, InterpreterDataType> locals, Optional<ObjectIDT> object, ExpressionNode expression) {
-        throw new IllegalArgumentException();
+        if (expression instanceof BooleanLiteralNode booleanLiteral) {
+            return new BooleanIDT(booleanLiteral.value);
+        } else if (expression instanceof BooleanOpNode booleanOpNode) {
+            var l = evaluate(locals,object, booleanOpNode.left);
+            var r = evaluate(locals,object, booleanOpNode.right);
+            boolean value = switch (booleanOpNode.op) {
+                case and -> l && r;
+                case or -> l || r;
+            };
+        } else if (expression instanceof MathOpNode mathOpNode) {
+            // MathOpNode's also represent string operations
+            if (mathOpNode.left instanceof StringLiteralNode stringLiteral) {
+
+            }
+        } else if (expression instanceof MethodCallExpressionNode methodCallExpression) {
+            methodCallExpression.
+        } else if (expression instanceof VariableReferenceNode variableReference) {
+            return findVariable(variableReference.name, locals, object);
+        }
     }
 
     //              Utility Methods
 
     /**
-     * Used when trying to find a match to a method call. Given a method declaration, does it match this methoc call?
-     * We double check with the parameters, too, although in theory JUST checking the declaration to the call should be enough.
+     * Used when trying to find a match to a method call. Given a method declaration, does it match this method call?
+     * We double-check with the parameters, too, although in theory JUST checking the declaration to the call should be enough.
      *
      * Match names, parameter counts (both declared count vs method call and declared count vs value list), return counts.
      * If all of those match, consider the types (use TypeMatchToIDT).
      * If everything is OK, return true, else return false.
-     * Note - if m is a built-in and isVariadic is true, skip all of the parameter validation.
+     * Note - if m is a built-in and isVariadic is true, skip all the parameter validation.
      * @param m - the method declaration we are considering
      * @param mc - the method call we are trying to match
      * @param parameters - the parameter values for this method call
      * @return does this method match the method call?
      */
     private boolean doesMatch(MethodDeclarationNode m, MethodCallStatementNode mc, List<InterpreterDataType> parameters) {
-        return true;
+        boolean namesMatch = m.name.equals(mc.methodName);
     }
 
     /**
@@ -198,7 +225,7 @@ public class Interpreter {
      * @return the list of method values
      */
     private List<InterpreterDataType> getParameters(Optional<ObjectIDT> object, HashMap<String,InterpreterDataType> locals, MethodCallStatementNode mc) {
-        return null;
+        return mc.parameters.stream().map(param -> evaluate(locals, object, param)).toList();
     }
 
     /**
@@ -237,7 +264,7 @@ public class Interpreter {
      * @return either a class node or empty if that class doesn't exist
      */
     private Optional<ClassNode> getClassByName(String name) {
-        return Optional.empty();
+        return top.Classes.stream().filter(classNode -> name.equals(classNode.name)).findFirst();
     }
 
     /**
@@ -259,6 +286,12 @@ public class Interpreter {
      * @return an IDT with default values (0 for number, "" for string, false for boolean, ' ' for character)
      */
     private InterpreterDataType instantiate(String type) {
-        return null;
+        return switch (type) {
+            case "string" -> new StringIDT("");
+            case "number" -> new NumberIDT(0);
+            case "boolean" -> new BooleanIDT(false);
+            case "character" -> new CharIDT(' ');
+            default -> new ReferenceIDT();
+        };
     }
 }
