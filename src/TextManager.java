@@ -7,6 +7,7 @@ public class TextManager {
         this.text = text;
     }
 
+    // TODO: Refactor using Optional<char>
     public char getCharacter() {
         return text.charAt(position++);
     }

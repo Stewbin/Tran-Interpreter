@@ -164,25 +164,73 @@ public class Interpreter {
      * @return a value
      */
     private InterpreterDataType evaluate(HashMap<String, InterpreterDataType> locals, Optional<ObjectIDT> object, ExpressionNode expression) {
+        // Boolean Literals (BooleanLiteralNode)
         if (expression instanceof BooleanLiteralNode booleanLiteral) {
             return new BooleanIDT(booleanLiteral.value);
+        // Boolean Expressions (BooleanOpNode)
         } else if (expression instanceof BooleanOpNode booleanOpNode) {
-            var l = evaluate(locals,object, booleanOpNode.left);
-            var r = evaluate(locals,object, booleanOpNode.right);
-            boolean value = switch (booleanOpNode.op) {
+            boolean l = ((BooleanIDT) evaluate(locals, object, booleanOpNode.left)).Value;
+            boolean r = ((BooleanIDT) evaluate(locals, object, booleanOpNode.right)).Value;
+            return new BooleanIDT(switch (booleanOpNode.op) {
                 case and -> l && r;
                 case or -> l || r;
-            };
-        } else if (expression instanceof MathOpNode mathOpNode) {
-            // MathOpNode's also represent string operations
-            if (mathOpNode.left instanceof StringLiteralNode stringLiteral) {
+            });
+        // Comparisons (CompareNode)
+        } else if (expression instanceof CompareNode compareNode) {
+            var l = evaluate(locals, object, compareNode.left);
+            var r = evaluate(locals, object, compareNode.right);
 
+            BooleanIDT retVal;
+            if (l instanceof NumberIDT leftNum && r instanceof NumberIDT rightNum) {
+                retVal = new BooleanIDT(switch (compareNode.op) {
+                    case lt -> leftNum.Value < rightNum.Value;
+                    case le -> leftNum.Value <= rightNum.Value;
+                    case gt -> leftNum.Value > rightNum.Value;
+                    case ge -> leftNum.Value <= rightNum.Value;
+                    case eq -> leftNum.Value == rightNum.Value;
+                    case ne -> leftNum.Value != rightNum.Value;
+                });
+            } else {
+                retVal = new BooleanIDT(switch (compareNode.op) {
+                    case eq -> l == r;
+                    case ne -> l != r;
+                    default -> throw new RuntimeException(String.format("Undefined operation: %s %s %s", l, compareNode.op, r));
+                });
             }
-        } else if (expression instanceof MethodCallExpressionNode methodCallExpression) {
-            methodCallExpression.
+            return retVal;
+        // Number Literals (NumericLiteralNode)
+        } else if (expression instanceof NumericLiteralNode numberLiteral) {
+            return new NumberIDT(numberLiteral.value);
+        // Math Expressions (MathOpNode)
+        } else if (expression instanceof MathOpNode mathOpNode) {
+            var l = evaluate(locals, object, mathOpNode.left);
+            var r = evaluate(locals, object, mathOpNode.right);
+            // If both l & r are numbers, do math operations
+            if (l instanceof NumberIDT leftNum && r instanceof NumberIDT rightNum) {
+                return new NumberIDT(switch (mathOpNode.op) {
+                    case add -> leftNum.Value + rightNum.Value;
+                    case subtract -> leftNum.Value - rightNum.Value;
+                    case multiply -> leftNum.Value * rightNum.Value;
+                    case divide -> leftNum.Value / rightNum.Value;
+                    case modulo -> leftNum.Value % rightNum.Value;
+                });
+            // If l & r are both strings, do string operations
+            } else if (l instanceof StringIDT leftStr && r instanceof StringIDT rightStr) {
+                return new StringIDT(leftStr.Value + rightStr.Value);
+            } else {
+                throw new RuntimeException(String.format("Undefined operation: '%s %s %s'", l, mathOpNode.op, r));
+            }
+        // String Literals (StringLiteralNode)
+        } else if (expression instanceof StringLiteralNode stringLiteral) {
+            return new StringIDT(stringLiteral.value);
+        // Method Calls (MethodCallExpressionNode)
+        } else if (expression instanceof MethodCallExpressionNode methodCallExp) {
+            return findMethodForMethodCallAndRunIt(object, locals, new MethodCallStatementNode(methodCallExp)).getFirst();
+        // Variable Reference (VariableReferenceNode)
         } else if (expression instanceof VariableReferenceNode variableReference) {
             return findVariable(variableReference.name, locals, object);
         }
+        throw new RuntimeException("Unknown expression: " + expression);
     }
 
     //              Utility Methods
@@ -202,6 +250,16 @@ public class Interpreter {
      */
     private boolean doesMatch(MethodDeclarationNode m, MethodCallStatementNode mc, List<InterpreterDataType> parameters) {
         boolean namesMatch = m.name.equals(mc.methodName);
+        boolean returnCountsMatch = m.returns.size() == mc.returnValues.size();
+        boolean parameterCountsMatch;
+        if (m instanceof BuiltInMethodDeclarationNode builtInMethod && builtInMethod.isVariadic) {
+            parameterCountsMatch = true;
+        } else {
+            boolean declaredAndCallMatch = m.parameters.size() == mc.parameters.size();
+            boolean declaredAndArgumentsMatch = m.parameters.size() == parameters.size();
+            parameterCountsMatch = declaredAndCallMatch && declaredAndArgumentsMatch;
+        }
+        return namesMatch && returnCountsMatch && parameterCountsMatch;
     }
 
     /**
