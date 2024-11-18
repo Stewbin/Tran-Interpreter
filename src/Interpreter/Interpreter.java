@@ -6,6 +6,7 @@ import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.IntStream;
 
 public class Interpreter {
     private TranNode top;
@@ -82,6 +83,11 @@ public class Interpreter {
      */
     private List<InterpreterDataType> interpretMethodCall(Optional<ObjectIDT> object, MethodDeclarationNode m, List<InterpreterDataType> values) {
         var retVal = new LinkedList<InterpreterDataType>();
+        // Case: m is a built-in method
+        if (m instanceof BuiltInMethodDeclarationNode builtInM) {
+            return builtInM.Execute(values);
+        }
+        // Case: m is not built-in
         return retVal;
     }
 
@@ -250,16 +256,19 @@ public class Interpreter {
      */
     private boolean doesMatch(MethodDeclarationNode m, MethodCallStatementNode mc, List<InterpreterDataType> parameters) {
         boolean namesMatch = m.name.equals(mc.methodName);
-        boolean returnCountsMatch = m.returns.size() == mc.returnValues.size();
-        boolean parameterCountsMatch;
+        boolean returnsMatch = mc.returnValues.size() <= m.returns.size(); // TODO: Check for return list types in addition to size
+        boolean parametersMatch;
         if (m instanceof BuiltInMethodDeclarationNode builtInMethod && builtInMethod.isVariadic) {
-            parameterCountsMatch = true;
+            parametersMatch = true;
         } else {
-            boolean declaredAndCallMatch = m.parameters.size() == mc.parameters.size();
+            boolean declaredAndCallMatch = mc.parameters.size() == m.parameters.size();
             boolean declaredAndArgumentsMatch = m.parameters.size() == parameters.size();
-            parameterCountsMatch = declaredAndCallMatch && declaredAndArgumentsMatch;
+            boolean typesMatch = IntStream
+                    .range(0, parameters.size())
+                    .allMatch(i -> typeMatchToIDT(m.parameters.get(i).type, parameters.get(i)));
+            parametersMatch = declaredAndCallMatch && declaredAndArgumentsMatch && typesMatch;
         }
-        return namesMatch && returnCountsMatch && parameterCountsMatch;
+        return namesMatch && returnsMatch && parametersMatch;
     }
 
     /**
@@ -298,7 +307,14 @@ public class Interpreter {
      * @return is this OK?
      */
     private boolean typeMatchToIDT(String type, InterpreterDataType idt) {
-        throw new RuntimeException("Unable to resolve type " + type);
+        return switch (idt) {
+            case BooleanIDT ignored -> type.equals("boolean");
+            case NumberIDT ignored -> type.equals("number");
+            case StringIDT ignored -> type.equals("string");
+            case ObjectIDT obj -> type.equals(obj.astNode.name);
+            case ReferenceIDT ref -> typeMatchToIDT(type, ref.refersTo.orElseThrow(() -> new RuntimeException("Null Reference Exception: " + ref)));
+            default -> throw new RuntimeException(String.format("Undefined type: '%s'", idt));
+        };
     }
 
     /**
