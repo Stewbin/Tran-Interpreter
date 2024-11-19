@@ -192,7 +192,8 @@ public class Parser {
         if (tokenManager.matchAndRemove(Token.TokenTypes.INDENT).isEmpty())
             throw new SyntaxErrorException("Indent Expected", tokenManager.getCurrentLine(), tokenManager.getCurrentColumnNumber());
 
-        // Class body
+        // Parse class-body
+        consumeExcessiveNewLines();
         // {(Constructor NEWLINE) | (MethodDeclaration NEWLINE) | (Member NEWLINE)}
         do {
             // Constructors
@@ -229,6 +230,11 @@ public class Parser {
         return Optional.of(classNode);
     }
 
+    private void consumeExcessiveNewLines() {
+        while (tokenManager.matchAndRemove(Token.TokenTypes.NEWLINE).isPresent())
+            ;
+    }
+
     // Field (officially: Member) = VariableDeclaration NEWLINE ["accessor" ":" Statements] ["mutator" ":" Statements]
     private Optional<MemberNode> parseField() throws SyntaxErrorException {
         var fieldNode = new MemberNode();
@@ -246,6 +252,8 @@ public class Parser {
             tokenManager.matchAndRemove(Token.TokenTypes.NEWLINE);
             tokenManager.matchAndRemove(Token.TokenTypes.INDENT);
 
+            consumeExcessiveNewLines(); // At the accessor/mutator level of indentation
+
             // 0 or 1 Accessors
             if (tokenManager.matchAndRemove(Token.TokenTypes.ACCESSOR).isPresent()) {
                 if (tokenManager.matchAndRemove(Token.TokenTypes.COLON).isEmpty())
@@ -256,6 +264,8 @@ public class Parser {
                 fieldNode.accessor = parseStatementBlock();
             }
 
+            consumeExcessiveNewLines(); // At the accessor/mutator level of indentation
+
             // 0 or 1 Mutators
             if (tokenManager.matchAndRemove(Token.TokenTypes.MUTATOR).isPresent()) {
                 if (tokenManager.matchAndRemove(Token.TokenTypes.COLON).isEmpty())
@@ -265,6 +275,23 @@ public class Parser {
                 // Add statement block
                 fieldNode.mutator = parseStatementBlock();
             }
+
+            consumeExcessiveNewLines(); // At the accessor/mutator level of indentation
+
+            // In case 'accessor:' was put after 'mutator:'
+            if (tokenManager.matchAndRemove(Token.TokenTypes.ACCESSOR).isPresent()) {
+                if (fieldNode.accessor.isPresent())
+                    throw new SyntaxErrorException("Cannot have more than one accessor", tokenManager.getCurrentLine(), tokenManager.getCurrentColumnNumber());
+
+                if (tokenManager.matchAndRemove(Token.TokenTypes.COLON).isEmpty())
+                    throw new SyntaxErrorException("Colon expected after 'accessor' keyword", tokenManager.getCurrentLine(), tokenManager.getCurrentColumnNumber());
+                // Newline
+                requireNewLine();
+                // Add statement block
+                fieldNode.accessor = parseStatementBlock();
+            }
+
+            consumeExcessiveNewLines(); // At the accessor/mutator level of indentation
 
             // Dedent
             if (tokenManager.matchAndRemove(Token.TokenTypes.DEDENT).isEmpty())
@@ -317,7 +344,6 @@ public class Parser {
         // Construct
         if (tokenManager.matchAndRemove(Token.TokenTypes.CONSTRUCT).isEmpty())
             return Optional.empty();
-
         // Left paren
         tokenManager.matchAndRemove(Token.TokenTypes.LPAREN).orElseThrow(() -> new SyntaxErrorException("Lparen Expected", tokenManager.getCurrentLine(), tokenManager.getCurrentColumnNumber()));
         // VariableDeclarations
@@ -354,6 +380,8 @@ public class Parser {
                 statements.add(statement.get());
                 requireNewLine(); // Newline
             }
+
+            consumeExcessiveNewLines();
 
             // If no Dedent found
             if (tokenManager.done())
@@ -469,6 +497,8 @@ public class Parser {
 
         // While DEDENT not found
         while (tokenManager.matchAndRemove(Token.TokenTypes.DEDENT).isEmpty()) {
+            consumeExcessiveNewLines(); // Statement-level Newlines are unhandled anywhere else here
+
             var statement = parseStatement();
             if (statement.isPresent()) {
                 // Add statement to list

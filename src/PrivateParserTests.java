@@ -2,7 +2,7 @@ import AST.*;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-public class ParserTests {
+public class PrivateParserTests {
     private TranNode LexAndParse(String input, int tokenCount) throws Exception {
         var l = new Lexer(input);
         var tokens = l.Lex();

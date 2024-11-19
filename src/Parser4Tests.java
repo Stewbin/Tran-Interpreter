@@ -2,11 +2,12 @@ import AST.*;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-public class CustomParser4Tests {
+public class Parser4Tests {
 
     private TranNode LexAndParse(String input) throws Exception {
         var l = new Lexer(input);
         var tokens = l.Lex();
+        System.out.println(tokens);
         var tran = new TranNode();
         var p = new Parser(tran, tokens);
         p.Tran();
@@ -197,5 +198,32 @@ public class CustomParser4Tests {
         Assertions.assertInstanceOf(AssignmentNode.class, initial.mutator.get().getFirst());
         Assertions.assertInstanceOf(CharLiteralNode.class, ((AssignmentNode) initial.mutator.get().getFirst()).expression);
         Assertions.assertEquals('A', ((CharLiteralNode) ((AssignmentNode) initial.mutator.get().getFirst()).expression).value);
+    }
+
+    @Test
+    public void excessiveWhiteSpaceBetweenMembers_shouldParseFine() throws Exception {
+        var t = LexAndParse(
+                      "class Tran\n" +
+                            "    \n" +
+                            "    \n" +
+                            "    string firstName\n" +
+                            "        \n" +
+                            "        \n" +
+                            "        mutator:\n" +
+                            "            \n" +
+                            "            \n" +
+                            "            firstName = value + \" is dumb!\"\n" +
+                            "        \n" +
+                            "        accessor:\n");
+        var tran = t.Classes.getFirst();
+        Assertions.assertEquals(1, tran.members.size());
+        Assertions.assertEquals(0, tran.methods.size());
+        Assertions.assertEquals(0, tran.constructors.size());
+
+        var firstName = tran.members.getFirst();
+        Assertions.assertEquals("string firstName", firstName.declaration.toString());
+        Assertions.assertTrue(firstName.mutator.isPresent());
+        Assertions.assertEquals(1, firstName.mutator.get().size());
+        Assertions.assertTrue(firstName.accessor.isEmpty());
     }
 }

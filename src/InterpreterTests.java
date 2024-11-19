@@ -173,4 +173,30 @@ public class InterpreterTests {
         }
     }
 
+    // TODO: Test for methods of the same name & return size, but different return types
+    // TODO: Test for mutation of outside variables inside method calls
+    @Test
+    public void functionShouldNotMutateOutsideVariables() {
+        String program = """
+                class Matrix
+                    number numRows
+                        accessor:
+                            value = numRows
+                    number numColumns
+                        accessor:
+                            value = numColumns
+                    
+                    shared getShape() : number m, number n
+                        m = numRows
+                        n = numColumns
+                        
+                    shared start()
+                        string m
+                        string n
+                        m, n = getShape()
+                """;
+        Assertions.assertThrows(RuntimeException.class, () -> run(program));
+    }
+
+    // TODO: Test for putting non-iterator and non-boolean in Loop expression
 }

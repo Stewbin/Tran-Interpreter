@@ -82,13 +82,34 @@ public class Interpreter {
      * @return the returned values from the method
      */
     private List<InterpreterDataType> interpretMethodCall(Optional<ObjectIDT> object, MethodDeclarationNode m, List<InterpreterDataType> values) {
-        var retVal = new LinkedList<InterpreterDataType>();
+        // Number of arguments passed must match expectation
+        if (m.parameters.size() != values.size())
+            throw new RuntimeException("Unexpected number of parameters");
+
         // Case: m is a built-in method
         if (m instanceof BuiltInMethodDeclarationNode builtInM) {
             return builtInM.Execute(values);
         }
         // Case: m is not built-in
-        return retVal;
+        var locals = new HashMap<String, InterpreterDataType>();
+        for (int i = 0; i < m.parameters.size(); i++) {
+            // Add parameters of m to local variables
+            var param = m.parameters.get(i);
+            locals.put(param.name, instantiate(param.type));
+            // Add locals of m to local variables
+            var localOfM = m.locals.get(i);
+            locals.put(localOfM.name, instantiate(localOfM.type));
+            // Add return targets of m to local variables
+        }
+        interpretStatementBlock(object, m.statements, locals); // locals is now modified
+        // Collect return values from locals, then return them
+        var retVals = new LinkedList<InterpreterDataType>();
+        for (var ret : m.returns) {
+            if (locals.containsKey(ret.name)) {
+                retVals.add(locals.get(ret.name));
+            }
+        }
+        return retVals;
     }
 
     //              Running Constructors
@@ -127,7 +148,7 @@ public class Interpreter {
 
     /**
      * Given a block (which could be from a method or an "if" or "loop" block, run each statement.
-     * Blocks, by definition, do ever statement, so iterating over the statements makes sense.
+     * Blocks, by definition, do every statement, so iterating over the statements makes sense.
      *
      * For each statement in statements:
      * check the type:
@@ -149,6 +170,34 @@ public class Interpreter {
      * @param locals - the local variables
      */
     private void interpretStatementBlock(Optional<ObjectIDT> object, List<StatementNode> statements, HashMap<String, InterpreterDataType> locals) {
+        for (var stmnt : statements) {
+            if (stmnt instanceof AssignmentNode assignment) {
+                var target = findVariable(assignment.target.name, locals, object);
+                var value = evaluate(locals, object, assignment.expression);
+                target.Assign(value);
+            } else if (stmnt instanceof MethodCallStatementNode methodCall) {
+                var retVals = findMethodForMethodCallAndRunIt(object, locals, methodCall);
+                for (int i = 0; i < methodCall.returnValues.size(); i++) {
+                    locals.put(
+                            methodCall.returnValues.get(i).name,
+                            retVals.get(i)
+                    );
+                }
+            } else if (stmnt instanceof LoopNode loop) {
+                boolean isDone;
+                if (loop.expression instanceof ObjectIDT objectIDT) {
+                    if (typeMatchToIDT("iterator", objectIDT))
+                        throw new RuntimeException("Object implementing 'iterator' expected");
+//                    isDone = ;
+                } else if (loop.expression instanceof BooleanOpNode boolExp) {
+                    isDone = ((BooleanIDT) evaluate(locals, object, boolExp)).Value;
+                }
+            } else if (stmnt instanceof IfNode ifStmnt) {
+                var condition = evaluate(locals, object, ifStmnt.condition);
+                if (!(condition instanceof BooleanIDT))
+                    throw new RuntimeException("Unexpected condition");
+            }
+        }
     }
 
     /**
@@ -311,7 +360,7 @@ public class Interpreter {
             case BooleanIDT ignored -> type.equals("boolean");
             case NumberIDT ignored -> type.equals("number");
             case StringIDT ignored -> type.equals("string");
-            case ObjectIDT obj -> type.equals(obj.astNode.name);
+            case ObjectIDT obj -> type.equals(obj.astNode.name) || obj.astNode.interfaces.stream().anyMatch(type::equals); // astNode.name is Class name
             case ReferenceIDT ref -> typeMatchToIDT(type, ref.refersTo.orElseThrow(() -> new RuntimeException("Null Reference Exception: " + ref)));
             default -> throw new RuntimeException(String.format("Undefined type: '%s'", idt));
         };
