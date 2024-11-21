@@ -2,14 +2,11 @@ package Interpreter;
 
 import AST.*;
 
-import java.util.HashMap;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 import java.util.stream.IntStream;
 
 public class Interpreter {
-    private TranNode top;
+    private final TranNode top;
 
     /** Constructor - get the interpreter ready to run. Set members from parameters and "prepare" the class.
      *
@@ -37,7 +34,7 @@ public class Interpreter {
                 .findFirst();
         if (start.isEmpty())
             throw new RuntimeException("No 'start' method found");
-        interpretMethodCall(Optional.empty(), start.get(), new LinkedList<InterpreterDataType>());
+        interpretMethodCall(Optional.empty(), start.get(), new LinkedList<>());
     }
 
     //              Running Methods
@@ -153,7 +150,7 @@ public class Interpreter {
      * For each statement in statements:
      * check the type:
      *      For AssignmentNode, FindVariable() to get the target. Evaluate() the expression. Call Assign() on the target with the result of Evaluate()
-     *      For MethodCallStatementNode, call doMethodCall(). Loop over the returned values and copy the into our local variables
+     *      For MethodCallStatementNode, call interpretMethodCall(). Loop over the returned values and copy the into our local variables
      *      For LoopNode - there are 2 kinds.
      *          Setup:
      *          If this is a Loop over an iterator (an Object node whose class has "iterator" as an interface)
@@ -184,18 +181,52 @@ public class Interpreter {
                     );
                 }
             } else if (stmnt instanceof LoopNode loop) {
-                boolean isDone;
-                if (loop.expression instanceof ObjectIDT objectIDT) {
-                    if (typeMatchToIDT("iterator", objectIDT))
+                Optional<MethodDeclarationNode> getNextMethod = Optional.empty();
+                var condition = evaluate(locals, object, loop.expression);
+                if (condition instanceof ObjectIDT iterator) {
+                    // Check if iterator implements 'iterator' interface
+                    if (!typeMatchToIDT("iterator", iterator))
                         throw new RuntimeException("Object implementing 'iterator' expected");
-//                    isDone = ;
-                } else if (loop.expression instanceof BooleanOpNode boolExp) {
-                    isDone = ((BooleanIDT) evaluate(locals, object, boolExp)).Value;
+                    // Create node that matches the 'getNext' method we're looking for
+                    var getNextNode = new MethodCallStatementNode();
+                    getNextNode.methodName = "getNext";
+                    getNextNode.parameters = new ArrayList<>(0); // Empty parameters
+                    getNextNode.returnValues = new ArrayList<>(3);
+                    // Look for declaration that matches that node
+                    getNextMethod = Optional.ofNullable(getMethodFromObject(iterator, getNextNode, new LinkedList<>()));
+                } else if (!(condition instanceof BooleanIDT)) {
+                    throw new RuntimeException("Iterator or Boolean expected as condition");
                 }
-            } else if (stmnt instanceof IfNode ifStmnt) {
-                var condition = evaluate(locals, object, ifStmnt.condition);
-                if (!(condition instanceof BooleanIDT))
-                    throw new RuntimeException("Unexpected condition");
+
+                while (true) {
+                    var returnedValues = getNextMethod.map(getNext -> interpretMethodCall(object, getNext, new LinkedList<>()));
+                    // Determine if we should loop
+                    boolean shouldContinue = returnedValues.isPresent()
+                            ? ((BooleanIDT) returnedValues.get().getFirst()).Value // Condition is an iterator
+                            : ((BooleanIDT) evaluate(locals, object, loop.expression)).Value; // Condition is a boolean
+                    if (!shouldContinue)
+                        break;
+                    // Check if this loop is being assigned to a variable
+                    if (loop.assignment.isPresent()) {
+                        // Value of loop expression gets assigned
+                        var loopExpVal = returnedValues.isPresent()
+                                ? returnedValues.get().getFirst()
+                                : new BooleanIDT(true); // The boolean expression is always true if execution reached here
+                        findVariable(loop.assignment.get().name, locals, object).Assign(loopExpVal);
+                    }
+                    // Interpret loop body
+                    interpretStatementBlock(object, loop.statements, locals);
+                }
+            } else if (stmnt instanceof IfNode ifStatement) {
+                var condition = evaluate(locals, object, ifStatement.condition);
+                if (condition instanceof BooleanIDT boolExp) {
+                    if (boolExp.Value) // Value == true
+                        interpretStatementBlock(object, ifStatement.statements, locals);
+                    else
+                        ifStatement.elseStatement.ifPresent(elseNode -> interpretStatementBlock(object, elseNode.statements, locals));
+                    return;
+                }
+                throw new RuntimeException("Expected boolean expression");
             }
         }
     }
@@ -211,7 +242,7 @@ public class Interpreter {
      * BooleanOpNode - Evaluate() left and right, then perform either and/or on the results.
      * CompareNode - Evaluate() both sides. Do good comparison for each data type
      * MathOpNode - Evaluate() both sides. If they are both numbers, do the math using the built-in operators. Also handle String + String as concatenation (like Java)
-     * MethodCallExpression - call doMethodCall() and return the first value
+     * MethodCallExpression - call interpretMethodCall() and return the first value
      * VariableReferenceNode - call findVariable()
      * @param locals the local variables
      * @param object - the current object we are running
@@ -376,7 +407,10 @@ public class Interpreter {
      * @return a method or throws an exception
      */
     private MethodDeclarationNode getMethodFromObject(ObjectIDT object, MethodCallStatementNode mc, List<InterpreterDataType> parameters) {
-        throw new RuntimeException("Unable to resolve method call " + mc);
+        return object.astNode.methods.stream()
+                .filter(m -> doesMatch(m, mc, parameters))
+                .findFirst()
+                .orElseThrow(() -> new RuntimeException("Unable to resolve method call " + mc));
     }
 
     /**
