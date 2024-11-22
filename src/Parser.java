@@ -193,9 +193,10 @@ public class Parser {
             throw new SyntaxErrorException("Indent Expected", tokenManager.getCurrentLine(), tokenManager.getCurrentColumnNumber());
 
         // Parse class-body
-        consumeExcessiveNewLines();
         // {(Constructor NEWLINE) | (MethodDeclaration NEWLINE) | (Member NEWLINE)}
         do {
+            consumeExcessiveNewLines();
+
             // Constructors
             var constructor = parseConstructor();
             if (constructor.isPresent()) {
@@ -716,15 +717,17 @@ public class Parser {
     // MethodCallExpression = [Identifier "."] Identifier "(" [Expression {"," Expression }] ")"
     private Optional<MethodCallExpressionNode> parseMethodCallExpression() throws SyntaxErrorException {
         var methodCallExp = new MethodCallExpressionNode(); // Make node
-        methodCallExp.objectName = Optional.empty(); // Fix objectName is originally null in class implementation
+        methodCallExp.objectName = Optional.empty(); // Fix: objectName is originally null in class implementation
 
         // Optional caller object e.g. "myObj.method();"
-        if (tokenManager.nextTwoTokensMatch(Token.TokenTypes.WORD, Token.TokenTypes.DOT))
+        if (tokenManager.nextTwoTokensMatch(Token.TokenTypes.WORD, Token.TokenTypes.DOT)) {
             methodCallExp.objectName = tokenManager.matchAndRemove(Token.TokenTypes.WORD).map(Token::getValue);
+            tokenManager.matchAndRemove(Token.TokenTypes.DOT); // Consume '.'
+        }
 
         // Method name
         if (!tokenManager.nextTwoTokensMatch(Token.TokenTypes.WORD, Token.TokenTypes.LPAREN)) {
-            // Method was not found, nor object => not a method
+            // Method was not found, and object not found => not a method
             if (methodCallExp.objectName.isEmpty())
                 return Optional.empty();
             // Object found, but no method

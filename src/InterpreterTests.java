@@ -10,19 +10,17 @@ import java.util.List;
 public class InterpreterTests {
     @Test
     public void SimpleAdd() {
-        String program = """
-                class SimpleAdd
-                    
-                    shared start()
-                        number x
-                        number y
-                        number z
-                        
-                        x = 6
-                        y = 6
-                        z = x + y 
-                        console.write(z)
-                """;
+        String program = "class SimpleAdd\n" +
+                         "\n" +
+                         "    shared start()\n" +
+                         "        number x\n" +
+                         "        number y\n" +
+                         "        number z\n" +
+                         "\n" + // Would this break ever happen in real code?
+                         "        x = 6\n" +
+                         "        y = 6\n" +
+                         "        z = x + y\n" +
+                         "        console.write(z)\n";
         var tranNode = run(program);
         var c = getConsole(tranNode);
         Assertions.assertEquals(1,c.size());
@@ -31,26 +29,24 @@ public class InterpreterTests {
 
     @Test
     public void SimpleAddInstantiate() {
-        String program = """
-                class SimpleAdd
-                    number x
-                    number y
-                    
-                    construct()
-                        x = 6
-                        y = 6
-                        
-                    add()
-                        number z
-                        z = x + y 
-                        console.write(z)
-                        
-                    shared start()
-                        SimpleAdd t
-                        t = new SimpleAdd()
-                        t.add()
-                        
-                """;
+        String program = "class SimpleAdd\n" +
+                         "    number x\n" +
+                         "    number y\n" +
+                         "\n" +
+                         "    construct()\n" +
+                         "        x = 6\n" +
+                         "        y = 6\n" +
+                         "\n" +
+                         "    add()\n" +
+                         "        number z\n" +
+                         "        z = x + y\n" +
+                         "        console.write(z)\n" +
+                         "\n" +
+                         "    shared start()\n" +
+                         "        SimpleAdd t\n" +
+                         "        t = new SimpleAdd()\n" +
+                         "        t.add()\n" +
+                         "\n";
         var tranNode = run(program);
         var c = getConsole(tranNode);
         Assertions.assertEquals(1,c.size());
@@ -59,26 +55,24 @@ public class InterpreterTests {
 
     @Test
     public void SimpleAddInstantiateAndPrint() {
-        String program = """
-                class SimpleAdd
-                    number x
-                    number y
-                    
-                    construct()
-                        x = 6
-                        y = 6
-                        
-                    add()
-                        number z
-                        z = x + y 
-                        console.write(z)
-                        
-                    shared start()
-                        SimpleAdd t
-                        t = new SimpleAdd()
-                        t.add()
-                        
-                """;
+        String program = "class SimpleAdd\n" +
+                         "    number x\n" +
+                         "    number y\n" +
+                         "\n" +
+                         "    construct()\n" +
+                         "        x = 6\n" +
+                         "        y = 6\n" +
+                         "\n" +
+                         "    add()\n" +
+                         "        number z\n" +
+                         "        z = x + y\n" +
+                         "        console.write(z)\n" +
+                         "\n" +
+                         "    shared start()\n" +
+                         "        SimpleAdd t\n" +
+                         "        t = new SimpleAdd()\n" +
+                         "        t.add()\n" +
+                         "\n";
         var tranNode = run(program);
         var c = getConsole(tranNode);
         Assertions.assertEquals(1,c.size());
@@ -161,10 +155,10 @@ public class InterpreterTests {
         var l  = new Lexer(program);
         try {
             var tokens = l.Lex();
+            System.out.println(tokens);
             var tran = new TranNode();
             var p = new Parser(tran,tokens);
             p.Tran();
-            System.out.println(tran.toString());
             var i = new Interpreter(tran);
             i.start();
             return tran;
@@ -177,24 +171,22 @@ public class InterpreterTests {
     // TODO: Test for mutation of outside variables inside method calls
     @Test
     public void functionShouldNotMutateOutsideVariables() {
-        String program = """
-                class Matrix
-                    number numRows
-                        accessor:
-                            value = numRows
-                    number numColumns
-                        accessor:
-                            value = numColumns
-                    
-                    shared getShape() : number m, number n
-                        m = numRows
-                        n = numColumns
-                        
-                    shared start()
-                        string m
-                        string n
-                        m, n = getShape()
-                """;
+        String program = "class Matrix\n" +
+                         "    number numRows\n" +
+                         "        accessor:\n" +
+                         "            value = numRows\n" +
+                         "    number numColumns\n" +
+                         "        accessor:\n" +
+                         "            value = numColumns\n" +
+                         "            \n" +
+                         "    shared getShape() : number m, number n\n" +
+                         "        m = numRows\n" +
+                         "        n = numColumns\n" +
+                         "        \n" +
+                         "    shared start()\n" +
+                         "        string m\n" +
+                         "        string n\n" +
+                         "        m, n = getShape()\n";
         Assertions.assertThrows(RuntimeException.class, () -> run(program));
     }
 
