@@ -1,6 +1,8 @@
-package Interpreter;
+package Interpreter.DataTypes;
 
-public class BooleanIDT implements InterpreterDataType {
+import Interpreter.ConsoleWrite;
+
+public class BooleanIDT implements ConsoleWrite.InterpreterDataType {
     public boolean Value;
 
     public BooleanIDT(boolean value) {
@@ -8,7 +10,7 @@ public class BooleanIDT implements InterpreterDataType {
     }
 
     @Override
-    public void Assign(InterpreterDataType in) {
+    public void Assign(ConsoleWrite.InterpreterDataType in) {
         if (in instanceof BooleanIDT inv) {
             Value = inv.Value;
         }

@@ -1,6 +1,8 @@
-package Interpreter;
+package Interpreter.DataTypes;
 
-public class CharIDT implements InterpreterDataType {
+import Interpreter.ConsoleWrite;
+
+public class CharIDT implements ConsoleWrite.InterpreterDataType {
     public char Value;
 
     public CharIDT(char value) {
@@ -8,7 +10,7 @@ public class CharIDT implements InterpreterDataType {
     }
 
     @Override
-    public void Assign(InterpreterDataType in) {
+    public void Assign(ConsoleWrite.InterpreterDataType in) {
         if (in instanceof CharIDT inv) {
             Value = inv.Value;
         } else {

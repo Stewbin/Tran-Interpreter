@@ -1,4 +1,8 @@
+package Parser;
+
 import AST.*;
+import Lexer.SyntaxErrorException;
+import Lexer.Token;
 
 import java.util.*;
 
@@ -443,7 +447,7 @@ public class Parser {
             tokenManager.matchAndRemove(Token.TokenTypes.NEWLINE);
             // Body (Statements)
             parseStatementBlock().ifPresent(statements -> loopNode.statements = statements);
-//                .orElseThrow(() -> new SyntaxErrorException("Body expected in Loop-statement", tokenManager.getCurrentLine(), tokenManager.getCurrentColumnNumber()));
+//                .orElseThrow(() -> new Lexer.SyntaxErrorException("Body expected in Loop-statement", tokenManager.getCurrentLine(), tokenManager.getCurrentColumnNumber()));
         }
 
         return Optional.of(loopNode);
@@ -560,8 +564,8 @@ public class Parser {
         return tokenManager.matchAndRemove(Token.TokenTypes.AND)
                 .or(() -> tokenManager.matchAndRemove(Token.TokenTypes.OR))
                 .map(t -> switch (t.getType()) {
-                    case AND -> BooleanOpNode.BooleanOperations.and;
-                    case OR -> BooleanOpNode.BooleanOperations.or;
+                    case Token.TokenTypes.AND -> BooleanOpNode.BooleanOperations.and;
+                    case Token.TokenTypes.OR -> BooleanOpNode.BooleanOperations.or;
                     default -> null;
                 });
     }

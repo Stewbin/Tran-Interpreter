@@ -1,0 +1,39 @@
+package Interpreter;
+
+import AST.BuiltInMethodDeclarationNode;
+import Interpreter.DataTypes.BooleanIDT;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.stream.IntStream;
+
+public class GetNext extends BuiltInMethodDeclarationNode {
+    private final int[] nums;
+    private int currPos;
+    private int currVal;
+
+    public GetNext(int n) {
+        this.nums = IntStream.rangeClosed(0, n).toArray();
+        currPos = 0;
+        currVal = nums[0];
+    }
+
+    /**
+     * Returns two things: a boolean, and the next element in iteration.
+     * @return Value1: True if the iterator is not done, if else false. <br/>
+     *         Value2: The next value in the collection. Returns -1 if no elements left.
+     */
+    @Override
+    public List<Interpreter.ConsoleWrite.InterpreterDataType> Execute(List<Interpreter.ConsoleWrite.InterpreterDataType> params) {
+        var retVals = new ArrayList<Interpreter.ConsoleWrite.InterpreterDataType>(2);
+        if (currPos < nums.length) {
+            currVal = nums[currPos++];
+            retVals.add(new BooleanIDT(true));
+            retVals.add(new Interpreter.ConsoleWrite.NumberIDT(currVal));
+        } else {
+            retVals.add(new BooleanIDT(false));
+            retVals.add(new Interpreter.ConsoleWrite.NumberIDT(-1));
+        }
+        return retVals;
+    }
+}

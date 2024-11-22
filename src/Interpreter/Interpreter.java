@@ -1,6 +1,8 @@
 package Interpreter;
 
 import AST.*;
+import Interpreter.DataTypes.BooleanIDT;
+import Interpreter.DataTypes.CharIDT;
 
 import java.util.*;
 import java.util.stream.IntStream;
@@ -57,7 +59,7 @@ public class Interpreter {
      * @param mc - the method call
      * @return - the return values
      */
-    private List<InterpreterDataType> findMethodForMethodCallAndRunIt(Optional<ObjectIDT> object, HashMap<String, InterpreterDataType> locals, MethodCallStatementNode mc) {
+    private List<Interpreter.ConsoleWrite.InterpreterDataType> findMethodForMethodCallAndRunIt(Optional<Interpreter.ConsoleWrite.ObjectIDT> object, HashMap<String, Interpreter.ConsoleWrite.InterpreterDataType> locals, MethodCallStatementNode mc) {
         // Evaluate parameters
         var parameters = getParameters(object, locals, mc);
         // Find declaration for method
@@ -84,7 +86,7 @@ public class Interpreter {
                         );
             } else {
                 // The caller is a local or member object
-                if (findVariable(mc.objectName.get(), locals, object) instanceof ObjectIDT callerObject)
+                if (findVariable(mc.objectName.get(), locals, object) instanceof Interpreter.ConsoleWrite.ObjectIDT callerObject)
                     mDec = getMethodFromObject(callerObject, mc, parameters);
                 else
                     throw new RuntimeException("%s is not a object".formatted(mc.objectName.get()));
@@ -109,7 +111,7 @@ public class Interpreter {
      * @param values - The values to be passed in
      * @return the returned values from the method
      */
-    private List<InterpreterDataType> interpretMethodCall(Optional<ObjectIDT> object, MethodDeclarationNode m, List<InterpreterDataType> values) {
+    private List<Interpreter.ConsoleWrite.InterpreterDataType> interpretMethodCall(Optional<Interpreter.ConsoleWrite.ObjectIDT> object, MethodDeclarationNode m, List<Interpreter.ConsoleWrite.InterpreterDataType> values) {
         // Number of arguments passed must match expectation
         if (m.parameters.size() != values.size())
             throw new RuntimeException("Unexpected number of parameters");
@@ -119,7 +121,7 @@ public class Interpreter {
             return builtInM.Execute(values);
         }
         // Case: m is not built-in
-        var locals = new HashMap<String, InterpreterDataType>(); // Make hashmap for local variables
+        var locals = new HashMap<String, Interpreter.ConsoleWrite.InterpreterDataType>(); // Make hashmap for local variables
         // Add parameters of m to local variables
         IntStream.range(0, m.parameters.size()).forEach(i -> locals.put(m.parameters.get(i).name, instantiate(m.parameters.get(i).type)));
         // Add locals of m to local variables
@@ -129,7 +131,7 @@ public class Interpreter {
 
         interpretStatementBlock(object, m.statements, locals); // 'locals' is now modified
         // Collect return-values from locals, then return them
-        var retVals = new LinkedList<InterpreterDataType>();
+        var retVals = new LinkedList<Interpreter.ConsoleWrite.InterpreterDataType>();
         for (var ret : m.returns) {
             if (locals.containsKey(ret.name)) {
                 retVals.add(locals.get(ret.name));
@@ -153,7 +155,7 @@ public class Interpreter {
      * @param mc  - the method call for this construction
      * @param newOne - the object that we just created that we are calling the constructor for
      */
-    private void findConstructorAndRunIt(Optional<ObjectIDT> callerObj, HashMap<String, InterpreterDataType> locals, MethodCallStatementNode mc, ObjectIDT newOne) {
+    private void findConstructorAndRunIt(Optional<Interpreter.ConsoleWrite.ObjectIDT> callerObj, HashMap<String, Interpreter.ConsoleWrite.InterpreterDataType> locals, MethodCallStatementNode mc, Interpreter.ConsoleWrite.ObjectIDT newOne) {
         // Find Constructor //
         var constructorClass = getClassByName(mc.methodName).orElseThrow(() -> new RuntimeException("Class not found for constructor"));
         // Convert the parameters of 'mc' into IDT's
@@ -177,12 +179,12 @@ public class Interpreter {
      * @param c - which constructor is being called
      * @param values - the parameter values being passed to the constructor
      */
-    private void interpretConstructorCall(ObjectIDT object, ConstructorNode c, List<InterpreterDataType> values) {
+    private void interpretConstructorCall(Interpreter.ConsoleWrite.ObjectIDT object, ConstructorNode c, List<Interpreter.ConsoleWrite.InterpreterDataType> values) {
         // Check that the right number of parameters were passed in, if not throw.
         if (values.size() != c.parameters.size())
             throw new RuntimeException("Unexpected number of parameters");
         // Create local variables hashmap
-        var locals = new HashMap<String, InterpreterDataType>(object.members); // Add members of 'object' to locals-hashmap
+        var locals = new HashMap<String, Interpreter.ConsoleWrite.InterpreterDataType>(object.members); // Add members of 'object' to locals-hashmap
         // TODO: Handle local-variable and member name clash
         // Add local variables of 'c' to locals-hashmap
         for (var localVar : c.locals) {
@@ -224,7 +226,7 @@ public class Interpreter {
      * @param statements - the statements to run
      * @param locals - the local variables
      */
-    private void interpretStatementBlock(Optional<ObjectIDT> object, List<StatementNode> statements, HashMap<String, InterpreterDataType> locals) {
+    private void interpretStatementBlock(Optional<Interpreter.ConsoleWrite.ObjectIDT> object, List<StatementNode> statements, HashMap<String, Interpreter.ConsoleWrite.InterpreterDataType> locals) {
         for (var statement : statements) {
             if (statement instanceof AssignmentNode assignment) {
                 var target = findVariable(assignment.target.name, locals, object);
@@ -241,7 +243,7 @@ public class Interpreter {
             } else if (statement instanceof LoopNode loop) {
                 Optional<MethodDeclarationNode> getNextMethod = Optional.empty();
                 var condition = evaluate(locals, object, loop.expression);
-                if (condition instanceof ObjectIDT iterator) {
+                if (condition instanceof Interpreter.ConsoleWrite.ObjectIDT iterator) {
                     // Check if iterator implements 'iterator' interface
                     if (!typeMatchToIDT("iterator", iterator))
                         throw new RuntimeException("Object implementing 'iterator' expected");
@@ -308,7 +310,7 @@ public class Interpreter {
      * @param expression - some expression to evaluate
      * @return a value
      */
-    private InterpreterDataType evaluate(HashMap<String, InterpreterDataType> locals, Optional<ObjectIDT> object, ExpressionNode expression) {
+    private Interpreter.ConsoleWrite.InterpreterDataType evaluate(HashMap<String, Interpreter.ConsoleWrite.InterpreterDataType> locals, Optional<Interpreter.ConsoleWrite.ObjectIDT> object, ExpressionNode expression) {
         // Boolean Literals (BooleanLiteralNode)
         if (expression instanceof BooleanLiteralNode booleanLiteral) {
             return new BooleanIDT(booleanLiteral.value);
@@ -326,7 +328,7 @@ public class Interpreter {
             var r = evaluate(locals, object, compareNode.right);
 
             BooleanIDT retVal;
-            if (l instanceof NumberIDT leftNum && r instanceof NumberIDT rightNum) {
+            if (l instanceof Interpreter.ConsoleWrite.NumberIDT leftNum && r instanceof Interpreter.ConsoleWrite.NumberIDT rightNum) {
                 retVal = new BooleanIDT(switch (compareNode.op) {
                     case lt -> leftNum.Value < rightNum.Value;
                     case le -> leftNum.Value <= rightNum.Value;
@@ -345,14 +347,14 @@ public class Interpreter {
             return retVal;
         // Number Literals (NumericLiteralNode)
         } else if (expression instanceof NumericLiteralNode numberLiteral) {
-            return new NumberIDT(numberLiteral.value);
+            return new Interpreter.ConsoleWrite.NumberIDT(numberLiteral.value);
         // Math Expressions (MathOpNode)
         } else if (expression instanceof MathOpNode mathOpNode) {
             var l = evaluate(locals, object, mathOpNode.left);
             var r = evaluate(locals, object, mathOpNode.right);
             // If both l & r are numbers, do math operations
-            if (l instanceof NumberIDT leftNum && r instanceof NumberIDT rightNum) {
-                return new NumberIDT(switch (mathOpNode.op) {
+            if (l instanceof Interpreter.ConsoleWrite.NumberIDT leftNum && r instanceof Interpreter.ConsoleWrite.NumberIDT rightNum) {
+                return new Interpreter.ConsoleWrite.NumberIDT(switch (mathOpNode.op) {
                     case add -> leftNum.Value + rightNum.Value;
                     case subtract -> leftNum.Value - rightNum.Value;
                     case multiply -> leftNum.Value * rightNum.Value;
@@ -360,14 +362,14 @@ public class Interpreter {
                     case modulo -> leftNum.Value % rightNum.Value;
                 });
             // If l & r are both strings, do string operations
-            } else if (l instanceof StringIDT leftStr && r instanceof StringIDT rightStr) {
-                return new StringIDT(leftStr.Value + rightStr.Value);
+            } else if (l instanceof Interpreter.ConsoleWrite.StringIDT leftStr && r instanceof Interpreter.ConsoleWrite.StringIDT rightStr) {
+                return new Interpreter.ConsoleWrite.StringIDT(leftStr.Value + rightStr.Value);
             } else {
                 throw new RuntimeException(String.format("Undefined operation: '%s %s %s'", l, mathOpNode.op, r));
             }
         // String Literals (StringLiteralNode)
         } else if (expression instanceof StringLiteralNode stringLiteral) {
-            return new StringIDT(stringLiteral.value);
+            return new Interpreter.ConsoleWrite.StringIDT(stringLiteral.value);
         // Method Calls (MethodCallExpressionNode)
         } else if (expression instanceof MethodCallExpressionNode methodCallExp) {
             return findMethodForMethodCallAndRunIt(object, locals, new MethodCallStatementNode(methodCallExp)).getFirst();
@@ -383,7 +385,7 @@ public class Interpreter {
             // Get AST-Node of the constructor's class
             var classNode = getClassByName(constructExp.className).orElseThrow(() -> new RuntimeException("Class not found for constructor: %s".formatted(constructExp)));
             // Create a new ObjectIDT according to the specifications of the class, to be returned
-            var instance = new ObjectIDT(classNode);
+            var instance = new Interpreter.ConsoleWrite.ObjectIDT(classNode);
             for (int i = 0; i < classNode.members.size(); i++) {
                 var classField = classNode.members.get(i).declaration;
                 instance.members.put(classField.name, instantiate(classField.type));
@@ -410,7 +412,7 @@ public class Interpreter {
      * @param parameters - the parameter values for this method call
      * @return does this method match the method call?
      */
-    private boolean doesMatch(MethodDeclarationNode m, MethodCallStatementNode mc, List<InterpreterDataType> parameters) {
+    private boolean doesMatch(MethodDeclarationNode m, MethodCallStatementNode mc, List<Interpreter.ConsoleWrite.InterpreterDataType> parameters) {
         boolean namesMatch = m.name.equals(mc.methodName);
         boolean returnsMatch = mc.returnValues.size() <= m.returns.size();
         boolean parametersMatch;
@@ -435,7 +437,7 @@ public class Interpreter {
      * @param parameters - the parameter values
      * @return does this constructor match the method call?
      */
-    private boolean doesConstructorMatch(ConstructorNode c, MethodCallStatementNode mc, List<InterpreterDataType> parameters) {
+    private boolean doesConstructorMatch(ConstructorNode c, MethodCallStatementNode mc, List<Interpreter.ConsoleWrite.InterpreterDataType> parameters) {
         boolean parameterCountsMatch = mc.parameters.size() == c.parameters.size() && c.parameters.size() == parameters.size();
         boolean parameterTypesMatch = true;
         for (int i = 0; i < c.parameters.size(); i++) {
@@ -454,7 +456,7 @@ public class Interpreter {
      * @param mc - a method call
      * @return the list of method values
      */
-    private List<InterpreterDataType> getParameters(Optional<ObjectIDT> object, HashMap<String,InterpreterDataType> locals, MethodCallStatementNode mc) {
+    private List<Interpreter.ConsoleWrite.InterpreterDataType> getParameters(Optional<Interpreter.ConsoleWrite.ObjectIDT> object, HashMap<String, Interpreter.ConsoleWrite.InterpreterDataType> locals, MethodCallStatementNode mc) {
         return mc.parameters.stream().map(param -> evaluate(locals, object, param)).toList();
     }
 
@@ -469,13 +471,13 @@ public class Interpreter {
      * @param idt the IDT someone is trying to pass to this method
      * @return is this OK?
      */
-    private boolean typeMatchToIDT(String type, InterpreterDataType idt) {
+    private boolean typeMatchToIDT(String type, Interpreter.ConsoleWrite.InterpreterDataType idt) {
         return switch (idt) {
             case BooleanIDT ignored -> type.equals("boolean");
-            case NumberIDT ignored -> type.equals("number");
-            case StringIDT ignored -> type.equals("string");
-            case ObjectIDT obj -> type.equals(obj.astNode.name) || obj.astNode.interfaces.stream().anyMatch(type::equals); // astNode.name is Class name
-            case ReferenceIDT ref -> typeMatchToIDT(type, ref.refersTo.orElseThrow(() -> new RuntimeException("Null Reference Exception: " + ref)));
+            case Interpreter.ConsoleWrite.NumberIDT ignored -> type.equals("number");
+            case Interpreter.ConsoleWrite.StringIDT ignored -> type.equals("string");
+            case Interpreter.ConsoleWrite.ObjectIDT obj -> type.equals(obj.astNode.name) || obj.astNode.interfaces.stream().anyMatch(type::equals); // astNode.name is Class name
+            case Interpreter.ConsoleWrite.ReferenceIDT ref -> typeMatchToIDT(type, ref.refersTo.orElseThrow(() -> new RuntimeException("Null Reference Exception: " + ref)));
             default -> throw new RuntimeException(String.format("Undefined type: '%s'", idt));
         };
     }
@@ -489,7 +491,7 @@ public class Interpreter {
      * @param parameters - the parameter value list
      * @return a method or throws an exception
      */
-    private MethodDeclarationNode getMethodFromObject(ObjectIDT object, MethodCallStatementNode mc, List<InterpreterDataType> parameters) {
+    private MethodDeclarationNode getMethodFromObject(Interpreter.ConsoleWrite.ObjectIDT object, MethodCallStatementNode mc, List<Interpreter.ConsoleWrite.InterpreterDataType> parameters) {
         return object.astNode.methods.stream()
                 .filter(m -> doesMatch(m, mc, parameters))
                 .findFirst()
@@ -515,7 +517,7 @@ public class Interpreter {
      * @param object - the current object (so we can find members)
      * @return the IDT that we are looking for or throw an exception
      */
-    private InterpreterDataType findVariable(String name, HashMap<String,InterpreterDataType> locals, Optional<ObjectIDT> object) {
+    private Interpreter.ConsoleWrite.InterpreterDataType findVariable(String name, HashMap<String, Interpreter.ConsoleWrite.InterpreterDataType> locals, Optional<Interpreter.ConsoleWrite.ObjectIDT> object) {
         // Check in locals-hashmap
         if (locals.containsKey(name))
             return locals.get(name);
@@ -533,13 +535,13 @@ public class Interpreter {
      * @param type The name of the type (string, number, boolean, character). Defaults to ReferenceIDT if not one of those.
      * @return an IDT with default values (0 for number, "" for string, false for boolean, ' ' for character)
      */
-    private InterpreterDataType instantiate(String type) {
+    private Interpreter.ConsoleWrite.InterpreterDataType instantiate(String type) {
         return switch (type) {
-            case "string" -> new StringIDT("");
-            case "number" -> new NumberIDT(0);
+            case "string" -> new Interpreter.ConsoleWrite.StringIDT("");
+            case "number" -> new Interpreter.ConsoleWrite.NumberIDT(0);
             case "boolean" -> new BooleanIDT(false);
             case "character" -> new CharIDT(' ');
-            default -> new ReferenceIDT();
+            default -> new Interpreter.ConsoleWrite.ReferenceIDT();
         };
     }
 }

@@ -1,3 +1,5 @@
+package Lexer;
+
 import java.util.*;
 
 public class Lexer {
@@ -196,7 +198,7 @@ public class Lexer {
         }
     }
 
-    // TextManager.getCharacter(), but it tracks line and col #
+    // Lexer.TextManager.getCharacter(), but it tracks line and col #
     private char lexerGetCharacter() {
         char c = textManager.getCharacter();
         columnNumber++;

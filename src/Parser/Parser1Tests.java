@@ -1,11 +1,11 @@
-import AST.InterfaceNode;
-import AST.MethodHeaderNode;
+package Parser;
+
 import AST.TranNode;
-import AST.VariableDeclarationNode;
+import Lexer.Lexer;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-import org.junit.jupiter.api.Test;
+import Lexer.Token;
 import static org.junit.jupiter.api.Assertions.*;
 
 import java.util.*;
@@ -64,7 +64,7 @@ public class Parser1Tests {
         // Create a TranNode
         TranNode tranNode = new TranNode();
 
-        // Create the Parser with the TranNode and tokens
+        // Create the Parser.Parser with the TranNode and tokens
         Parser parser = new Parser(tranNode, tokens);
 
     }
@@ -86,16 +86,16 @@ public class Parser1Tests {
 
         // Check if the first token matches and is removed
         Optional<Token> matchedToken = tokenManager.matchAndRemove(Token.TokenTypes.WORD);
-        assertTrue(matchedToken.isPresent(), "Token should match WORD and be removed");
+        assertTrue(matchedToken.isPresent(), "Lexer.Token should match WORD and be removed");
         assertEquals(token1, matchedToken.get(), "The matched token should be the first token");
 
         // Check if the second token is now the first
         Optional<Token> nextToken = tokenManager.matchAndRemove(Token.TokenTypes.NUMBER);
-        assertTrue(nextToken.isPresent(), "Token should match NUMBER and be removed");
+        assertTrue(nextToken.isPresent(), "Lexer.Token should match NUMBER and be removed");
         assertEquals(token2, nextToken.get(), "The next token should be the second token");
 
         // Check if token manager is empty
-        assertTrue(tokenManager.done(), "Token manager should be empty");
+        Assertions.assertTrue(tokenManager.done(), "Lexer.Token manager should be empty");
     }
 
     @Test
@@ -124,7 +124,7 @@ public class Parser1Tests {
         TokenManager tokenManager = new TokenManager(new LinkedList<>(Arrays.asList(token1, token2)));
 
         // Check if the first two tokens match the given types
-        assertTrue(tokenManager.nextTwoTokensMatch(Token.TokenTypes.WORD, Token.TokenTypes.NUMBER),
+        Assertions.assertTrue(tokenManager.nextTwoTokensMatch(Token.TokenTypes.WORD, Token.TokenTypes.NUMBER),
                 "First two tokens should match WORD and NUMBER");
 
 
@@ -136,7 +136,7 @@ public class Parser1Tests {
         TokenManager tokenManager = new TokenManager(new LinkedList<>(Arrays.asList(token1)));
 
         // Check if the current line is returned correctly
-        assertEquals(1, tokenManager.getCurrentLine(), "The current line should be 1");
+        Assertions.assertEquals(1, tokenManager.getCurrentLine(), "The current line should be 1");
     }
 
     @Test
@@ -145,7 +145,7 @@ public class Parser1Tests {
         TokenManager tokenManager = new TokenManager(new LinkedList<>(Arrays.asList(token1)));
 
         // Check if the current column is returned correctly
-        assertEquals(5, tokenManager.getCurrentColumnNumber(), "The current column should be 5");
+        Assertions.assertEquals(5, tokenManager.getCurrentColumnNumber(), "The current column should be 5");
     }
 
     private TranNode LexAndParse(String input, int tokenCount) throws Exception {

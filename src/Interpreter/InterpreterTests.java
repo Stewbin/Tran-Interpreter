@@ -1,13 +1,42 @@
-import AST.BuiltInMethodDeclarationNode;
+package Interpreter;
+
 import AST.TranNode;
-import Interpreter.Interpreter;
-import Interpreter.ConsoleWrite;
+import Lexer.Lexer;
+import Parser.Parser;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
 
 public class InterpreterTests {
+    private static List<String> getConsole(TranNode tn) {
+        for (var c : tn.Classes)
+            if (c.name.equals("console")) {
+                for (var m : c.methods)  {
+                    if (m.name.equals("write")) {
+                        return ((ConsoleWrite)m).console;
+                    }
+                }
+            }
+        throw new RuntimeException("Unable to find console");
+    }
+
+    private static TranNode run(String program) {
+        var l  = new Lexer(program);
+        try {
+            var tokens = l.Lex();
+            System.out.println(tokens);
+            var tran = new TranNode();
+            var p = new Parser(tran,tokens);
+            p.Tran();
+            var i = new Interpreter(tran);
+            i.start();
+            return tran;
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
     @Test
     public void SimpleAdd() {
         String program = "class SimpleAdd\n" +
@@ -32,21 +61,21 @@ public class InterpreterTests {
         String program = "class SimpleAdd\n" +
                          "    number x\n" +
                          "    number y\n" +
-                         "\n" +
+                         "    \n" +
                          "    construct()\n" +
                          "        x = 6\n" +
                          "        y = 6\n" +
-                         "\n" +
+                         "    \n" +
                          "    add()\n" +
                          "        number z\n" +
                          "        z = x + y\n" +
                          "        console.write(z)\n" +
-                         "\n" +
+                         "    \n" +
                          "    shared start()\n" +
                          "        SimpleAdd t\n" +
                          "        t = new SimpleAdd()\n" +
                          "        t.add()\n" +
-                         "\n";
+                         "    \n";
         var tranNode = run(program);
         var c = getConsole(tranNode);
         Assertions.assertEquals(1,c.size());
@@ -139,38 +168,27 @@ public class InterpreterTests {
         Assertions.assertEquals("bart simpson 30.0",c.getLast());
     }
 
-    private static List<String> getConsole(TranNode tn) {
-        for (var c : tn.Classes)
-            if (c.name.equals("console")) {
-                for (var m : c.methods)  {
-                    if (m.name.equals("write")) {
-                        return ((ConsoleWrite)m).console;
-                    }
-                }
-            }
-        throw new RuntimeException("Unable to find console");
-    }
-
-    private static TranNode run(String program) {
-        var l  = new Lexer(program);
-        try {
-            var tokens = l.Lex();
-            System.out.println(tokens);
-            var tran = new TranNode();
-            var p = new Parser(tran,tokens);
-            p.Tran();
-            var i = new Interpreter(tran);
-            i.start();
-            return tran;
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-    }
-
     // TODO: Test for methods of the same name & return size, but different return types
     // TODO: Test for mutation of outside variables inside method calls
     @Test
     public void functionShouldNotMutateOutsideVariables() {
+        String program = "class Math\n" +
+                         "    shared avg(number a, number b) : number prod\n" +
+                         "        a = a + b\n" +
+                         "        b = a / 2\n" +
+                         "        prod = b\n" +
+                         "        \n" +
+                         "    shared start()\n" +
+                         "        number a\n" +
+                         "        a = 10" +
+                         "        number b\n" +
+                         "        number c\n" +
+                         "        c = avg(a, b)\n" +
+                         "        console.write(c)\n";
+
+    }
+
+    public void throwException_atReturnTypeMismatch() {
         String program = "class Matrix\n" +
                          "    number numRows\n" +
                          "        accessor:\n" +
@@ -179,12 +197,11 @@ public class InterpreterTests {
                          "        accessor:\n" +
                          "            value = numColumns\n" +
                          "            \n" +
-                         "    shared getShape() : number m, number n\n" +
-                         "        m = numRows\n" +
-                         "        n = numColumns\n" +
+                         "    shared totalNumEntries(number m, number n) : number total\n" +
+                         "        total = m * n" +
                          "        \n" +
                          "    shared start()\n" +
-                         "        string m\n" +
+                         "        string m\n" + // These should be numbers
                          "        string n\n" +
                          "        m, n = getShape()\n";
         Assertions.assertThrows(RuntimeException.class, () -> run(program));

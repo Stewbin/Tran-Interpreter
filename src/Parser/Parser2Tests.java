@@ -1,4 +1,9 @@
+package Parser;
+
 import AST.*;
+import Lexer.Lexer;
+import Lexer.Token;
+import Lexer.SyntaxErrorException;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -200,7 +205,7 @@ class TranExample implements someName
         );
 
            /*
-        Lexer L= new Lexer("interface someName\n" +
+        Lexer.Lexer L= new Lexer.Lexer("interface someName\n" +
                 "    square() : number s\n" +
                 "class TranExample implements someName\n" +
                 "    number m\n"+
@@ -256,7 +261,7 @@ class TranExample implements someName
         );
         var LT= L.Lex();
         System.out.println(LT);
-//        LT.add(new Token(Token.TokenTypes.DEDENT, 9, 18));
+//        LT.add(new Lexer.Token(Lexer.Token.TokenTypes.DEDENT, 9, 18));
 
         var tokens = new LinkedList<>(LT);//converting list to linked list so the token manager can handle this
         var p = new Parser(tran, LT);

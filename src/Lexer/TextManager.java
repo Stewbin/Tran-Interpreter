@@ -1,3 +1,5 @@
+package Lexer;
+
 public class TextManager {
     private final String text;
     private int position = 0;

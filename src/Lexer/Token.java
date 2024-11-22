@@ -1,3 +1,5 @@
+package Lexer;
+
 import java.util.Optional;
 
 public class Token {

@@ -1,4 +1,7 @@
+package Parser;
+
 import AST.*;
+import Lexer.Lexer;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 

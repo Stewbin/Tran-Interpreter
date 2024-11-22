@@ -1,3 +1,5 @@
+package Lexer;
+
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -54,7 +56,7 @@ public class PrivateLexerAssignment1Tests{
 
 //    @Test
 //    public void NotEqualsTest() {
-//        var l = new Lexer("!=");
+//        var l = new Lexer.Lexer("!=");
 //        try {
 //            var res = l.Lex();
 //            Assertions.assertEquals(1, res.size());
@@ -151,17 +153,17 @@ public class PrivateLexerAssignment1Tests{
 
 //    @Test
 //    public void TwoCharacterTest() {
-//        var l = new Lexer(">= > <= < = == !=");
+//        var l = new Lexer.Lexer(">= > <= < = == !=");
 //        try {
 //            var res = l.Lex();
 //            Assertions.assertEquals(7, res.size());
-//            Assertions.assertEquals(Token.TokenTypes.GREATERTHANEQUAL, res.get(0).getType());
-//            Assertions.assertEquals(Token.TokenTypes.GREATERTHAN, res.get(1).getType());
-//            Assertions.assertEquals(Token.TokenTypes.LESSTHANEQUAL, res.get(2).getType());
-//            Assertions.assertEquals(Token.TokenTypes.LESSTHAN, res.get(3).getType());
-//            Assertions.assertEquals(Token.TokenTypes.ASSIGN, res.get(4).getType());
-//            Assertions.assertEquals(Token.TokenTypes.EQUAL, res.get(5).getType());
-//            Assertions.assertEquals(Token.TokenTypes.NOTEQUAL, res.get(6).getType());
+//            Assertions.assertEquals(Lexer.Token.TokenTypes.GREATERTHANEQUAL, res.get(0).getType());
+//            Assertions.assertEquals(Lexer.Token.TokenTypes.GREATERTHAN, res.get(1).getType());
+//            Assertions.assertEquals(Lexer.Token.TokenTypes.LESSTHANEQUAL, res.get(2).getType());
+//            Assertions.assertEquals(Lexer.Token.TokenTypes.LESSTHAN, res.get(3).getType());
+//            Assertions.assertEquals(Lexer.Token.TokenTypes.ASSIGN, res.get(4).getType());
+//            Assertions.assertEquals(Lexer.Token.TokenTypes.EQUAL, res.get(5).getType());
+//            Assertions.assertEquals(Lexer.Token.TokenTypes.NOTEQUAL, res.get(6).getType());
 //        }
 //        catch (Exception e) {
 //            Assertions.fail("exception occurred: " +  e.getMessage());

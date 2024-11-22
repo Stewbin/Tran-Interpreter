@@ -1,3 +1,5 @@
+package Lexer;
+
 import AST.TranNode;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Nested;
@@ -326,7 +328,7 @@ public class Lexer2Tests {
             } catch (Exception e) {
                 Assertions.assertTrue(e instanceof SyntaxErrorException);
                 Assertions.assertEquals("Unclosed comment", e.getMessage());
-                Assertions.assertEquals(String.format("Error at line 1 at character %d at SyntaxErrorException: Unclosed comment", txt.length()), e.toString());
+                Assertions.assertEquals(String.format("Error at line 1 at character %d at Lexer.SyntaxErrorException: Unclosed comment", txt.length()), e.toString());
             }
 
         }

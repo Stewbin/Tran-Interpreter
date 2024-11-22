@@ -1,3 +1,5 @@
+package Lexer;
+
 public class SyntaxErrorException extends Exception{
     private int lineNumber, characterPosition;
 
