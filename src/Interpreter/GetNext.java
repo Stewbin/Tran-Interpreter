@@ -2,6 +2,8 @@ package Interpreter;
 
 import AST.BuiltInMethodDeclarationNode;
 import Interpreter.DataTypes.BooleanIDT;
+import Interpreter.DataTypes.InterpreterDataType;
+import Interpreter.DataTypes.NumberIDT;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -24,15 +26,15 @@ public class GetNext extends BuiltInMethodDeclarationNode {
      *         Value2: The next value in the collection. Returns -1 if no elements left.
      */
     @Override
-    public List<Interpreter.ConsoleWrite.InterpreterDataType> Execute(List<Interpreter.ConsoleWrite.InterpreterDataType> params) {
-        var retVals = new ArrayList<Interpreter.ConsoleWrite.InterpreterDataType>(2);
+    public List<InterpreterDataType> Execute(List<InterpreterDataType> params) {
+        var retVals = new ArrayList<InterpreterDataType>(2);
         if (currPos < nums.length) {
             currVal = nums[currPos++];
             retVals.add(new BooleanIDT(true));
-            retVals.add(new Interpreter.ConsoleWrite.NumberIDT(currVal));
+            retVals.add(new NumberIDT(currVal));
         } else {
             retVals.add(new BooleanIDT(false));
-            retVals.add(new Interpreter.ConsoleWrite.NumberIDT(-1));
+            retVals.add(new NumberIDT(-1));
         }
         return retVals;
     }

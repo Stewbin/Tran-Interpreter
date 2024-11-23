@@ -168,8 +168,7 @@ public class InterpreterTests {
         Assertions.assertEquals("bart simpson 30.0",c.getLast());
     }
 
-    // TODO: Test for methods of the same name & return size, but different return types
-    // TODO: Test for mutation of outside variables inside method calls
+
     @Test
     public void functionShouldNotMutateOutsideVariables() {
         String program = "class Math\n" +
@@ -188,7 +187,7 @@ public class InterpreterTests {
 
     }
 
-    public void throwException_atReturnTypeMismatch() {
+    public void throwExceptionAt_ReturnTypeMismatch() {
         String program = "class Matrix\n" +
                          "    number numRows\n" +
                          "        accessor:\n" +
@@ -197,8 +196,9 @@ public class InterpreterTests {
                          "        accessor:\n" +
                          "            value = numColumns\n" +
                          "            \n" +
-                         "    shared totalNumEntries(number m, number n) : number total\n" +
-                         "        total = m * n" +
+                         "    shared getShape() : number m, number n\n" +
+                         "        m = numRows\n" +
+                         "        n = numColumns" +
                          "        \n" +
                          "    shared start()\n" +
                          "        string m\n" + // These should be numbers
@@ -207,5 +207,77 @@ public class InterpreterTests {
         Assertions.assertThrows(RuntimeException.class, () -> run(program));
     }
 
-    // TODO: Test for putting non-iterator and non-boolean in Loop expression
+    public void timesIteratorShouldWork() {
+        String program = """
+                class Counter implements iterator
+                
+                class CountToTwenty
+                 
+                    shared start()
+                        number n
+                        n = 100
+                        Counter c 
+                        c = n.times()
+                        loop l = c
+                            console.write(c + " times!")
+                """;
+        var tranNode = run(program);
+
+
+        // Inspect console
+        var c = getConsole(tranNode);
+        Assertions.assertEquals(101,c.size());
+        for (int i = 0; i < c.size(); i++) {
+            Assertions.assertEquals(i + " times!", c.get(i));
+        }
+    }
+
+    public void throwExceptionAt_nonIteratorAndNonBooleanDatumInLoop() {
+        String program = """
+            class Tran
+                character char
+                number counter
+            
+                construct(character c)
+                    char = c
+                    counter = 0
+            
+                shared start()
+                    string str
+                    loop i = str
+                        counter = i
+            """;
+
+    }
+
+    public void throwExceptionAt_nonIteratorObjectInIteratorLoop() {
+        String program = """
+                class Tran
+                    character char
+                    number counter
+                
+                    construct(character c)
+                        char = c
+                        counter = 0
+                
+                    shared start()
+                        
+                        Tran tron = new Tran('a')
+                        loop i = tron
+                            counter = i     
+                """;
+    }
+
+    public void noCallerMethod_fromInsideSharedMethod_shouldSomething() {
+        String program = """
+                class Tran
+                
+                    shared awake()
+                        console.write("1 + 1 = 11\\n")
+                
+                    shared start()
+                        awake()
+                        console.write("is false\\n")
+                """;
+    }
 }

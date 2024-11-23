@@ -1,12 +1,12 @@
 package AST;
 
-import Interpreter.ConsoleWrite;
+import Interpreter.DataTypes.InterpreterDataType;
 
 import java.util.List;
 
 public abstract class BuiltInMethodDeclarationNode extends MethodDeclarationNode {
     public boolean isVariadic = false;
-    public abstract List<ConsoleWrite.InterpreterDataType> Execute(List<ConsoleWrite.InterpreterDataType> params);
+    public abstract List<InterpreterDataType> Execute(List<InterpreterDataType> params);
     @Override
     public String toString() {
         return "Built-in method, isVariadic = " + isVariadic + super.toString();
