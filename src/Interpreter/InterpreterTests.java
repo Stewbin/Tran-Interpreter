@@ -25,7 +25,7 @@ public class InterpreterTests {
         var l  = new Lexer(program);
         try {
             var tokens = l.Lex();
-            System.out.println(tokens);
+//            tokens.forEach(System.out::println);
             var tran = new TranNode();
             var p = new Parser(tran,tokens);
             p.Tran();
@@ -45,7 +45,7 @@ public class InterpreterTests {
                          "        number x\n" +
                          "        number y\n" +
                          "        number z\n" +
-                         "\n" + // Would this break ever happen in real code?
+                         "\n" +
                          "        x = 6\n" +
                          "        y = 6\n" +
                          "        z = x + y\n" +
@@ -149,7 +149,7 @@ public class InterpreterTests {
                 "        avg = (gradea + gradeb + gradec)/3\n" +
                 "    \n" +
                 "    print() \n" +
-                "        console.write(firstname, \" \", lastname, \" \", getAverage())\n" +
+                "        console.write(firstname, \" \", lastname, \" \", getAverage())\n" + // What is this logging syntax?
                 "    \n" +
                 "    shared start()\n" +
                 "        student sa\n" +

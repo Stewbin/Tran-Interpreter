@@ -3,6 +3,8 @@ package Interpreter;
 import AST.*;
 import Interpreter.DataTypes.*;
 
+import java.sql.Ref;
+import java.time.Clock;
 import java.util.*;
 import java.util.stream.IntStream;
 
@@ -17,6 +19,18 @@ public class Interpreter {
      */
     public Interpreter(TranNode top) {
         this.top = top;
+        // Add in built-in classes //
+
+        // Console
+        var console = new ClassNode();
+        console.name = "console";
+        var write = new ConsoleWrite();
+        write.isVariadic = true;
+        write.isShared = true;
+        write.isPrivate = false;
+
+        console.methods.add(write);
+        top.Classes.add(console);
     }
 
     /**
@@ -64,16 +78,16 @@ public class Interpreter {
         // Find declaration for method //
         MethodDeclarationNode mDec;
 
-        // Method caller is the object we're inside
+        // Case: `mc` has no apparent caller
         if (mc.objectName.isEmpty()) {
+            // Method caller is the object we're inside
             if (object.isPresent()) {
                 mDec = getMethodFromObject(object.get(), mc, parameters);
                 return interpretMethodCall(object, mDec, parameters);
             }
-            throw new RuntimeException("Caller object needed"); // 'mc' should be a static method no?
-            // TODO: Handle `object` being empty, and method-caller being empty
+            throw new RuntimeException("Calling object or class not found");
         }
-        // Method has caller
+        // Case: `mc` has apparent caller
         var maybeClass = getClassByName(mc.objectName.get());
         if (maybeClass.isPresent()) {
             // The caller is a class, and the method is shared
@@ -83,27 +97,41 @@ public class Interpreter {
                     .orElseThrow(
                             () -> new RuntimeException("shared method '%s' not found in '%s'".formatted(mc.methodName, maybeClass.get().name))
                     );
-        // The method is shared, but the caller's class is the built-in-class `console`
-        } else if (mc.objectName.get().equals("console")) {
-            if (!mc.methodName.equals("write")) // `write` is the only method console has
-                throw new RuntimeException("Method %s not found in 'console'".formatted(mc.methodName));
-            return interpretMethodCall(object, new ConsoleWrite(), parameters);
+            return interpretMethodCall(Optional.empty(), mDec, parameters);
+        // The method is shared, but the calling class is a built-in class
+        } else if (mc.objectName.get().equals("clock")) {
+            if (!mc.methodName.equals("getDate")) // `getDate` is the only method <clock> has
+                throw new RuntimeException("Method %s not found in class <clock>".formatted(mc.methodName));
+            return interpretMethodCall(Optional.empty(),  new GetDateMethod(), parameters);
         }
-        var caller = findVariable(mc.objectName.get(), locals, object);
         // The caller is a local or member object
+        return findMethodInInstanceAndRunIt(object, locals, mc, parameters);
+    }
+
+    private List<InterpreterDataType> findMethodInInstanceAndRunIt(Optional<ObjectIDT> object, HashMap<String, InterpreterDataType> locals, MethodCallStatementNode mc, List<InterpreterDataType> parameters) {
+        if (mc.objectName.isEmpty()) {
+            throw new RuntimeException("Caller object expected");
+        }
+        MethodDeclarationNode mDec;
+        var caller = findVariable(mc.objectName.get(), locals, object);
+
+        while (caller instanceof ReferenceIDT referenceToCaller) { // Dereference references to the caller
+            caller = referenceToCaller.refersTo.orElseThrow(() -> new RuntimeException("<Null> reference exception"));
+        }
+
         if (caller instanceof ObjectIDT callingObject) {
-            if (mc.methodName.equals("clone"))
+            if (mc.methodName.equals("clone")) // 'clone' is a built-in method of all <Object>'s
                 mDec = new CloneObjectMethod(callingObject);
             else
                 mDec = getMethodFromObject(callingObject, mc, parameters);
+            return interpretMethodCall(Optional.of(callingObject), mDec, parameters);
         } else if (caller instanceof NumberIDT callingNumber) {
-            if (!mc.methodName.equals("times"))
+            if (!mc.methodName.equals("times")) // 'times' is a built-in method of all <Number>'s
                 throw new RuntimeException("Method %s not found for type <Number> ".formatted(mc.methodName));
-            mDec = new CreateTimesIterator(callingNumber);
+            return interpretMethodCall(Optional.empty(), new CreateTimesIterator(callingNumber), parameters);
         } else {
-            throw new RuntimeException("Method %s not found in %s".formatted(mc.methodName, mc.objectName));
+            throw new RuntimeException("Method %s not found in %s".formatted(mc.methodName, mc.objectName.get()));
         }
-        return interpretMethodCall(object, mDec, parameters);
     }
 
     /**
@@ -123,21 +151,21 @@ public class Interpreter {
      * @return the returned values from the method
      */
     private List<InterpreterDataType> interpretMethodCall(Optional<ObjectIDT> object, MethodDeclarationNode m, List<InterpreterDataType> values) {
-        // Number of arguments passed must match expectation
         if (m.parameters.size() != values.size())
-            throw new RuntimeException("Unexpected number of parameters");
+            throw new RuntimeException("Unexpected number of parameters passed into " + m.name);
 
-        // Case: m is a built-in method
+        // Case: m is a built-in method //
         if (m instanceof BuiltInMethodDeclarationNode builtInM) {
             return builtInM.Execute(values);
         }
-        // Case: m is not built-in
-        var locals = new HashMap<String, InterpreterDataType>(); // Make hashmap for local variables
-        // Add parameters of m to local variables
+        // Case: m is not built-in //
+        // Make hashmap for local variables
+        var locals = new HashMap<String, InterpreterDataType>();
+        // Add parameters of `m` to local variables
         IntStream.range(0, m.parameters.size()).forEach(i -> locals.put(m.parameters.get(i).name, instantiate(m.parameters.get(i).type)));
-        // Add locals of m to local variables
+        // Add locals of `m` to local variables
         IntStream.range(0, m.locals.size()).forEach(i -> locals.put(m.locals.get(i).name, instantiate(m.locals.get(i).type)));
-        // Add return targets of m to local variables
+        // Add return targets of `m` to local variables
         IntStream.range(0, m.returns.size()).forEach(i -> locals.put(m.returns.get(i).name, instantiate(m.returns.get(i).type)));
 
         interpretStatementBlock(object, m.statements, locals); // 'locals' is now modified
@@ -196,9 +224,10 @@ public class Interpreter {
             throw new RuntimeException("Unexpected number of parameters");
         // Create local variables hashmap
         var locals = new HashMap<String, InterpreterDataType>(object.members); // Add members of 'object' to locals-hashmap
-        // TODO: Handle local-variable and member name clash
         // Add local variables of 'c' to locals-hashmap
         for (var localVar : c.locals) {
+            if (locals.containsKey(localVar.name))
+                throw new RuntimeException("Variable %s already declared".formatted(localVar.name));
             locals.put(localVar.name, instantiate(localVar.type));
         }
         // Add parameters to locals-hashmap
@@ -206,6 +235,8 @@ public class Interpreter {
             var param = c.parameters.get(i);
             if (!typeMatchToIDT(param.type, values.get(i)))
                 throw new RuntimeException("Expected argument of type %s for %s".formatted(param.type, param.name));
+            if (locals.containsKey(param.name))
+                throw new RuntimeException("Variable %s already declared".formatted(param.name));
             locals.put(param.name, values.get(i));
         }
         // Call interpretStatementBlock() on constructor body
@@ -504,7 +535,7 @@ public class Interpreter {
             case NumberIDT ignored -> type.equals("number");
             case StringIDT ignored -> type.equals("string");
             case ObjectIDT obj -> type.equals(obj.astNode.name) || obj.astNode.interfaces.stream().anyMatch(type::equals); // astNode.name is Class name
-            case ReferenceIDT ref -> typeMatchToIDT(type, ref.refersTo.orElseThrow(() -> new RuntimeException("Null Reference Exception: " + ref)));
+            case ReferenceIDT ref -> typeMatchToIDT(type, ref.refersTo.orElseThrow(() -> new RuntimeException("<Null> Reference Exception: " + ref)));
             default -> throw new RuntimeException(String.format("Undefined type: '%s'", idt));
         };
     }

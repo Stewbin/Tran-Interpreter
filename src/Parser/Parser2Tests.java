@@ -261,14 +261,16 @@ class TranExample implements someName
         );
         var LT= L.Lex();
         System.out.println(LT);
-//        LT.add(new Lexer.Token(Lexer.Token.TokenTypes.DEDENT, 9, 18));
+
 
         var tokens = new LinkedList<>(LT);//converting list to linked list so the token manager can handle this
         var p = new Parser(tran, LT);
         p.Tran();
         var clazz = tran.Classes.getFirst();
     }
-    @Test
+
+    // Decommissioned
+//    @Test
     public void testLoop() throws Exception {
         Lexer L = new Lexer("class Tran\n" +
                         "\thelloWorld()\n" +
@@ -279,7 +281,8 @@ class TranExample implements someName
         p.Tran();
     }
 
-    @Test
+    // Decommissioned
+//    @Test
     public void testClassIf() throws Exception {
         Lexer L = new Lexer(
                 "class Tran\n" +
@@ -301,7 +304,8 @@ class TranExample implements someName
         return tran;
     }
 
-    @Test
+    // Decommissioned
+//    @Test
     public void testConstructorsOfAllSignatures() throws Exception {
         var tran = LexAndParse(
                 "class Student\n" +
@@ -398,7 +402,8 @@ class TranExample implements someName
         Assertions.assertThrows(SyntaxErrorException.class, p3::Tran);
     }
 
-    @Test
+    // Decommissioned-- made for a younger parser
+//    @Test
     public void singleFieldWithAccessorAndMutator() throws Exception {
         var l = new Lexer(
                 "class intFace\n" +

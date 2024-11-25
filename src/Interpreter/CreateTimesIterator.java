@@ -12,6 +12,7 @@ public class CreateTimesIterator extends BuiltInMethodDeclarationNode {
     private final int callerValue;
 
     public CreateTimesIterator(NumberIDT callerNum) {
+        super();
         this.callerValue = ((int) callerNum.Value);
     }
 
@@ -25,8 +26,9 @@ public class CreateTimesIterator extends BuiltInMethodDeclarationNode {
         if (params.isEmpty())
             throw new RuntimeException("Exactly 1 argument expected");
 
-        // Create an object implementing `iterator`
+        // Create an object implementing <iterator>
         var iteratorClass = new ClassNode();
+        iteratorClass.name = "Interator";
         iteratorClass.interfaces.add("iterator");
         iteratorClass.methods.add(new GetNext(callerValue));
         var interator = new ObjectIDT(iteratorClass);

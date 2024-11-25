@@ -183,22 +183,22 @@ public class Lexer1Tests {
 
         @Test
         public void completeSentenceTest() throws Exception {
-            String text = "I don't like green eggs and ham. I don't like them, Sam I am.";
+            String text = "I do not like green eggs and ham. I do not like them, Sam I am.";
             Lexer lexer = new Lexer(text);
             var res = lexer.Lex();
 
             Assertions.assertEquals("I", res.get(0).getValue());
-            Assertions.assertEquals("don", res.get(1).getValue());
-            Assertions.assertEquals("t", res.get(2).getValue());
+            Assertions.assertEquals("do", res.get(1).getValue());
+            Assertions.assertEquals(Token.TokenTypes.NOT, res.get(2).getType());
             Assertions.assertEquals("like", res.get(3).getValue());
             Assertions.assertEquals("green", res.get(4).getValue());
             Assertions.assertEquals("eggs", res.get(5).getValue());
-            Assertions.assertEquals("and", res.get(6).getValue());
+            Assertions.assertEquals(Token.TokenTypes.AND, res.get(6).getType());
             Assertions.assertEquals("ham", res.get(7).getValue());
             Assertions.assertEquals(Token.TokenTypes.DOT, res.get(8).getType());
             Assertions.assertEquals("I", res.get(9).getValue());
-            Assertions.assertEquals("don", res.get(10).getValue());
-            Assertions.assertEquals("t", res.get(11).getValue());
+            Assertions.assertEquals("do", res.get(10).getValue());
+            Assertions.assertEquals(Token.TokenTypes.NOT, res.get(11).getType());
             Assertions.assertEquals("like", res.get(12).getValue());
             Assertions.assertEquals("them", res.get(13).getValue());
             Assertions.assertEquals(Token.TokenTypes.COMMA, res.get(14).getType());

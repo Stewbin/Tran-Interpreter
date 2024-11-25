@@ -15,6 +15,7 @@ public class GetNext extends BuiltInMethodDeclarationNode {
     private int currVal;
 
     public GetNext(int n) {
+        super();
         this.nums = IntStream.rangeClosed(0, n).toArray();
         currPos = 0;
         currVal = nums[0];

@@ -11,6 +11,7 @@ public class CloneObjectMethod extends BuiltInMethodDeclarationNode {
     private final ObjectIDT toBeCloned;
 
     public CloneObjectMethod(ObjectIDT toBeCloned) {
+        super();
         this.toBeCloned = toBeCloned;
     }
 

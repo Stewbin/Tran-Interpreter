@@ -173,7 +173,7 @@ public class Parser3Tests
                         "\tsqrt(number x) : number s, number minusS\n" +
                         "\t\tif condition\n" +
                         "\t\tloop l = condition\n" +
-                        "\t\ts =\n"
+                        "\t\ts = l + 467\n"
         );
 
         Assertions.assertEquals(1, t.Classes.size());
@@ -188,13 +188,9 @@ public class Parser3Tests
         Assertions.assertEquals("number minusS", sqrt.returns.getLast().toString());
         Assertions.assertEquals(3, sqrt.statements.size());
         Assertions.assertEquals(0, sqrt.locals.size());
-        Assertions.assertEquals(
-                "if (condition or null)\n" +
-                        "null\n\n" +
-                        "loop l = condition or null\n\n" +
-                        "s = Placeholder-Expression\n\n",
-                Node.statementListToString(sqrt.statements)
-        );
+        Assertions.assertEquals("if (condition)\nnull\n", sqrt.statements.get(0).toString());
+        Assertions.assertEquals("loop l = condition\n", sqrt.statements.get(1).toString());
+        Assertions.assertEquals("s = l + 467.0 \n", sqrt.statements.get(2).toString());
     }
 
     @Test

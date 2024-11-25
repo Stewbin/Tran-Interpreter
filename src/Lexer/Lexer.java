@@ -67,17 +67,18 @@ public class Lexer {
     public List<Token> Lex() throws Exception {
         var retVal = new LinkedList<Token>();
         Optional<Token> t = Optional.empty();
-        boolean shouldUpdateScope = true;
+        boolean newlineEncountered = false;
 
         while (!textManager.isAtEnd()) {
+            char x = textManager.peekCharacter();
 
             // Parse indents after NEWLINE has been added
-            if (shouldUpdateScope) {
+            if (newlineEncountered && x != '\n') {
                 parseIndents(retVal);
-                shouldUpdateScope = false;
+                newlineEncountered = false;
+                x = textManager.peekCharacter(); // Re-peek, since position in text might be changed
             }
 
-            char x = textManager.peekCharacter();
             if (Character.isLetter(x)) {
                 // Words & Keywords
                 t = parseWord();
@@ -96,7 +97,7 @@ public class Lexer {
             } else if ('\n' == x) {
                 // Newline
                 t = parsePunctuation();
-                shouldUpdateScope = true; // Check indent level after every newline
+                newlineEncountered = true;
             } else if ('\'' == x) {
                 // QuotedCharacters
                 t = parseQuotedCharacter();

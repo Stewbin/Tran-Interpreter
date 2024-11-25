@@ -28,6 +28,8 @@ public class Parser {
             // Interface
             else if (token.get().getType() == Token.TokenTypes.INTERFACE)
                 parseInterface().ifPresent(tranNode.Interfaces::add);
+
+            consumeExcessiveNewLines(); // Newlines between classes/interfaces
         }
     }
 
