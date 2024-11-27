@@ -3,8 +3,6 @@ package Interpreter;
 import AST.*;
 import Interpreter.DataTypes.*;
 
-import java.sql.Ref;
-import java.time.Clock;
 import java.util.*;
 import java.util.stream.IntStream;
 
@@ -12,31 +10,59 @@ public class Interpreter {
     private final TranNode top;
 
     /** Constructor - get the interpreter ready to run. Set members from parameters and "prepare" the class.
-     *
+     * <br></br>
      * Store the tran node.
      * Add any built-in methods to the AST
      * @param top - the head of the AST
      */
     public Interpreter(TranNode top) {
         this.top = top;
-        // Add in built-in classes //
+        // Add built-in classes to AST//
+        top.Classes.add(createConsoleClass());
+        top.Classes.add(createTimeIteratorClass());
 
-        // Console
+        // Add built-in interfaces to AST //
+        top.Interfaces.add(createIteratorInterface());
+    }
+
+    private InterfaceNode createIteratorInterface() {
+        var iterator = new InterfaceNode();
+        iterator.name = "iterator";
+
+        // Create `getNext` header, the only method <iterator> enforces
+        var getNext = new MethodHeaderNode();
+        iterator.methods.add(getNext);
+        getNext.name = "getNext";
+        var hasNext = new VariableDeclarationNode();
+        hasNext.type = "boolean";
+        hasNext.name = "hasNext";
+        getNext.returns.add(hasNext);
+        var nextItem = new VariableDeclarationNode();
+        nextItem.name = "nextItem";
+        nextItem.type = "undefined";
+        getNext.returns.add(nextItem);
+        return iterator;
+    }
+
+    private ClassNode createConsoleClass() {
         var console = new ClassNode();
         console.name = "console";
         var write = new ConsoleWrite();
-        write.isVariadic = true;
-        write.isShared = true;
-        write.isPrivate = false;
-
         console.methods.add(write);
-        top.Classes.add(console);
+        return console;
     }
 
+    private ClassNode createTimeIteratorClass() {
+        var interator = new ClassNode();
+        interator.name = "Interator";
+        interator.interfaces.add("iterator");
+//        interator.methods.add(new GetNextMethod());
+        return interator;
+    }
     /**
      * This is the public interface to the interpreter. After parsing, we will create an interpreter and call start to
      * start interpreting the code.
-     *
+     * <br></br>
      * Search the classes in Tran for a method that is "isShared", named "start", that is not private and has no parameters
      * Call "InterpretMethodCall" on that method, then return.
      * Throw an exception if no such method exists.
@@ -58,13 +84,13 @@ public class Interpreter {
      * Find the method (local to this class, shared (like Java's system.out.print), or a method on another class)
      * Evaluate the parameters to have a list of values
      * Use interpretMethodCall() to actually run the method.
-     *
+     * <br></br>
      * Call GetParameters() to get the parameter value list
      * Find the method. This is tricky - there are several cases:
      * someLocalMethod() - has NO object name. Look in "object"
      * console.write() - the objectName is a CLASS and the method is shared
      * bestStudent.getGPA() - the objectName is a local or a member
-     *
+     * <br></br>
      * Once you find the method, call InterpretMethodCall() on it. Return the list that it returns.
      * Throw an exception if we can't find a match.
      * @param object - the object we are inside right now (might be empty)
@@ -98,11 +124,6 @@ public class Interpreter {
                             () -> new RuntimeException("shared method '%s' not found in '%s'".formatted(mc.methodName, maybeClass.get().name))
                     );
             return interpretMethodCall(Optional.empty(), mDec, parameters);
-        // The method is shared, but the calling class is a built-in class
-        } else if (mc.objectName.get().equals("clock")) {
-            if (!mc.methodName.equals("getDate")) // `getDate` is the only method <clock> has
-                throw new RuntimeException("Method %s not found in class <clock>".formatted(mc.methodName));
-            return interpretMethodCall(Optional.empty(),  new GetDateMethod(), parameters);
         }
         // The caller is a local or member object
         return findMethodInInstanceAndRunIt(object, locals, mc, parameters);
@@ -120,15 +141,15 @@ public class Interpreter {
         }
 
         if (caller instanceof ObjectIDT callingObject) {
-            if (mc.methodName.equals("clone")) // 'clone' is a built-in method of all <Object>'s
+            if (mc.methodName.equals("clone")) // `clone` is a built-in method of all <Object>'s
                 mDec = new CloneObjectMethod(callingObject);
             else
                 mDec = getMethodFromObject(callingObject, mc, parameters);
             return interpretMethodCall(Optional.of(callingObject), mDec, parameters);
         } else if (caller instanceof NumberIDT callingNumber) {
-            if (!mc.methodName.equals("times")) // 'times' is a built-in method of all <Number>'s
+            if (!mc.methodName.equals("times")) // `times` is the only built-in method of all <Number>'s
                 throw new RuntimeException("Method %s not found for type <Number> ".formatted(mc.methodName));
-            return interpretMethodCall(Optional.empty(), new CreateTimesIterator(callingNumber), parameters);
+            return interpretMethodCall(Optional.empty(), new CreateTimesIteratorMethod(callingNumber), parameters);
         } else {
             throw new RuntimeException("Method %s not found in %s".formatted(mc.methodName, mc.objectName.get()));
         }
@@ -138,7 +159,7 @@ public class Interpreter {
      * Run a "prepared" method (found, parameters evaluated)
      * This is split from findMethodForMethodCallAndRunIt() because there are a few cases where we don't need to do the finding:
      * in start() and dealing with loops with iterator objects, for example.
-     *
+     * <br></br>
      * Check to see if "m" is a built-in. If so, call Execute() on it and return
      * Make local variables, per "m"
      * If the number of passed in values doesn't match m's "expectations", throw
@@ -151,18 +172,20 @@ public class Interpreter {
      * @return the returned values from the method
      */
     private List<InterpreterDataType> interpretMethodCall(Optional<ObjectIDT> object, MethodDeclarationNode m, List<InterpreterDataType> values) {
-        if (m.parameters.size() != values.size())
-            throw new RuntimeException("Unexpected number of parameters passed into " + m.name);
-
         // Case: m is a built-in method //
         if (m instanceof BuiltInMethodDeclarationNode builtInM) {
             return builtInM.Execute(values);
         }
-        // Case: m is not built-in //
+        // Case: m is not built-in /ge/
+         if (m.parameters.size() != values.size()) {
+            throw new RuntimeException("Unexpected number of parameters passed into " + m.name);
+         }
         // Make hashmap for local variables
         var locals = new HashMap<String, InterpreterDataType>();
-        // Add parameters of `m` to local variables
-        IntStream.range(0, m.parameters.size()).forEach(i -> locals.put(m.parameters.get(i).name, instantiate(m.parameters.get(i).type)));
+        // Add members of executing object
+        object.ifPresent(obj -> locals.putAll(obj.members));
+        // Add parameters that were passed to `m` to the local variables
+        IntStream.range(0, m.parameters.size()).forEach(i -> locals.put(m.parameters.get(i).name, values.get(i)));
         // Add locals of `m` to local variables
         IntStream.range(0, m.locals.size()).forEach(i -> locals.put(m.locals.get(i).name, instantiate(m.locals.get(i).type)));
         // Add return targets of `m` to local variables
@@ -183,7 +206,7 @@ public class Interpreter {
 
     /**
      * This is a special case of the code for methods. Just different enough to make it worthwhile to split it out.
-     *
+     * <br></br>
      * Call GetParameters() to populate a list of IDT's
      * Call GetClassByName() to find the class for the constructor
      * If we didn't find the class, throw an exception
@@ -209,7 +232,7 @@ public class Interpreter {
 
     /**
      * Similar to interpretMethodCall, but "just different enough" - for example, constructors don't return anything.
-     *
+     * <br></br>
      * Creates local variables (as defined by the ConstructorNode), calls Instantiate() to do the creation
      * Checks to ensure that the right number of parameters were passed in, if not throw.
      * Adds the parameters (with the names from the ConstructorNode) to the locals.
@@ -248,7 +271,7 @@ public class Interpreter {
     /**
      * Given a block (which could be from a method or an "if" or "loop" block), run each statement.
      * Blocks, by definition, do every statement, so iterating over the statements makes sense.
-     *
+     * <br></br>
      * For each statement in statements:
      * check the type:
      *      For AssignmentNode, FindVariable() to get the target. Evaluate() the expression. Call Assign() on the target with the result of Evaluate()
@@ -282,6 +305,10 @@ public class Interpreter {
             } else if (statement instanceof LoopNode loop) {
                 Optional<MethodDeclarationNode> getNextMethod = Optional.empty();
                 var condition = evaluate(locals, object, loop.expression);
+                // Dereference 'condition'
+                while(condition instanceof ReferenceIDT reference) {
+                    condition = reference.refersTo.orElseThrow(() -> new RuntimeException("<Null> Reference Exception"));
+                }
                 if (condition instanceof ObjectIDT iterator) {
                     // Check if iterator implements 'iterator' interface
                     if (!typeMatchToIDT("iterator", iterator))
@@ -339,7 +366,7 @@ public class Interpreter {
     /**
      *  evaluate() processes everything that is an expression - math, variables, boolean expressions.
      *  There is a good bit of recursion in here, since math and comparisons have left and right sides that need to be evaluated.
-     *
+     * <br></br>
      * See the How To Write an Interpreter document for examples
      * For each possible ExpressionNode, do the work to resolve it:
      * BooleanLiteralNode - create a new BooleanLiteralNode with the same value
@@ -391,6 +418,9 @@ public class Interpreter {
         // Object instantiation (NewNode)
         } else if (expression instanceof NewNode constructExp) {
             return evaluateObjectInstantiation(locals, object, constructExp);
+        // Character literals
+        } else if (expression instanceof CharLiteralNode charLiteral) {
+            return new CharIDT(charLiteral.value);
         }
         throw new RuntimeException("Unknown expression: " + expression);
     }
@@ -407,9 +437,13 @@ public class Interpreter {
                 case divide -> leftNum.Value / rightNum.Value;
                 case modulo -> leftNum.Value % rightNum.Value;
             });
-        // If l & r are both strings, do string operations
+        // If l & r are both strings or chars, do string operations
         } else if (l instanceof StringIDT leftStr && r instanceof StringIDT rightStr) {
             return new StringIDT(leftStr.Value + rightStr.Value);
+        } else if (l instanceof StringIDT leftStr && r instanceof CharIDT rightChar) {
+            return new StringIDT(leftStr.Value + rightChar.Value);
+        } else if (l instanceof CharIDT leftChar && r instanceof StringIDT rightStr) {
+            return new StringIDT(leftChar.Value + rightStr.Value);
         } else {
             throw new RuntimeException(String.format("Undefined operation: '%s %s %s'", l, mathOpNode.op, r));
         }
@@ -429,7 +463,7 @@ public class Interpreter {
             instance.members.put(classField.name, instantiate(classField.type));
         }
         // Run constructor with allocated object
-        findConstructorAndRunIt(object, locals, mc, instance); // Fields oof 'instance' will be populated
+        findConstructorAndRunIt(object, locals, mc, instance); // Fields oof `instance` will be populated
         return instance;
     }
 
@@ -459,7 +493,7 @@ public class Interpreter {
     /**
      * Used when trying to find a match to a method call. Given a method declaration, does it match this method call?
      * We double-check with the parameters, too, although in theory JUST checking the declaration to the call should be enough.
-     *
+     * <br></br>
      * Match names, parameter counts (both declared count vs method call and declared count vs value list), return counts.
      * If all of those match, consider the types (use TypeMatchToIDT).
      * If everything is OK, return true, else return false.
@@ -507,7 +541,7 @@ public class Interpreter {
 
     /**
      * Used when we call a method to get the list of values for the parameters.
-     *
+     * <br></br>
      * for each parameter in the method call, call Evaluate() on the parameter to get an IDT and add it to a list
      * @param object - the current object
      * @param locals - the local variables
@@ -515,13 +549,13 @@ public class Interpreter {
      * @return the list of method values
      */
     private List<InterpreterDataType> getParameters(Optional<ObjectIDT> object, HashMap<String, InterpreterDataType> locals, MethodCallStatementNode mc) {
-        return mc.parameters.stream().map(param -> evaluate(locals, object, param)).toList();
+        return mc.parameters.stream().map(param -> copy(evaluate(locals, object, param))).toList();
     }
 
     /**
      * Used when we have an IDT and we want to see if it matches a type definition
      * Commonly, when someone is making a function call - do the parameter values match the method declaration?
-     *
+     * <br></br>
      * If the IDT is a simple type (boolean, number, etc.) - does the string type match the name of that IDT ("boolean", etc.)
      * If the IDT is an object, check to see if the name matches OR the class has an interface that matches
      * If the IDT is a reference, check the inner (referred to) type
@@ -534,6 +568,7 @@ public class Interpreter {
             case BooleanIDT ignored -> type.equals("boolean");
             case NumberIDT ignored -> type.equals("number");
             case StringIDT ignored -> type.equals("string");
+            case CharIDT ignored -> type.equals("character");
             case ObjectIDT obj -> type.equals(obj.astNode.name) || obj.astNode.interfaces.stream().anyMatch(type::equals); // astNode.name is Class name
             case ReferenceIDT ref -> typeMatchToIDT(type, ref.refersTo.orElseThrow(() -> new RuntimeException("<Null> Reference Exception: " + ref)));
             default -> throw new RuntimeException(String.format("Undefined type: '%s'", idt));
@@ -542,7 +577,7 @@ public class Interpreter {
 
     /**
      * Find a method in an object that is the right match for a method call (same name, parameters match, etc. Uses doesMatch() to do most of the work)
-     *
+     * <br></br>
      * Given a method call, we want to loop over the methods for that class, looking for a method that matches (use DoesMatch) or throw
      * @param object - an object that we want to find a method on
      * @param mc - the method call
@@ -558,7 +593,7 @@ public class Interpreter {
 
     /**
      * Find a class, given the name. Just loops over the TranNode's classes member, matching by name.
-     *
+     * <br></br>
      * Loop over each class in the top node, comparing names to find a match.
      * @param name Name of the class to find
      * @return either a class node or empty if that class doesn't exist
@@ -598,8 +633,27 @@ public class Interpreter {
             case "string" -> new StringIDT("");
             case "number" -> new NumberIDT(0);
             case "boolean" -> new BooleanIDT(false);
-            case "character" -> new CharIDT(' ');
+            case "character" -> new CharIDT('\0');
             default -> new ReferenceIDT();
         };
+    }
+
+    private InterpreterDataType copy(InterpreterDataType idt) {
+        if (idt instanceof ReferenceIDT ref) {
+            if (ref.refersTo.isEmpty())
+                throw new RuntimeException("<Null> Reference Exception: " + ref);
+            return copy(ref.refersTo.get());
+        } else if (idt instanceof StringIDT str) {
+            return new StringIDT(str.Value);
+        } else if (idt instanceof NumberIDT num) {
+            return new NumberIDT(num.Value);
+        } else if (idt instanceof BooleanIDT bool) {
+            return new BooleanIDT(bool.Value);
+        } else if (idt instanceof CharIDT charIDT) {
+            return new CharIDT(charIDT.Value);
+        } else if (idt instanceof ObjectIDT obj) {
+            return obj; // Objects should not be copied (like this)
+        }
+        throw new RuntimeException("Unknown IDT: " + idt);
     }
 }

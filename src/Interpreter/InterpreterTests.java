@@ -25,7 +25,7 @@ public class InterpreterTests {
         var l  = new Lexer(program);
         try {
             var tokens = l.Lex();
-//            tokens.forEach(System.out::println);
+            System.out.println(tokens);
             var tran = new TranNode();
             var p = new Parser(tran,tokens);
             p.Tran();
@@ -137,20 +137,20 @@ public class InterpreterTests {
                 "    number gradec\n" +
                 "    string firstname\n" +
                 "    string lastname\n" +
-                "    \n" +
+                "\n" +
                 "    construct (string fname, string lname, number ga, number gb, number gc)\n" +
                 "        firstname = fname\n" +
                 "        lastname = lname\n" +
                 "        gradea = ga\n" +
                 "        gradeb = gb\n" +
                 "        gradec = gc\n" +
-                "    \n" +
+                "\n" +
                 "    getAverage() : number avg \n" +
                 "        avg = (gradea + gradeb + gradec)/3\n" +
-                "    \n" +
+                "\n" +
                 "    print() \n" +
                 "        console.write(firstname, \" \", lastname, \" \", getAverage())\n" + // What is this logging syntax?
-                "    \n" +
+                "\n" +
                 "    shared start()\n" +
                 "        student sa\n" +
                 "        student sb\n" +
@@ -170,23 +170,58 @@ public class InterpreterTests {
 
 
     @Test
-    public void functionShouldNotMutateOutsideVariables() {
-        String program = "class Math\n" +
-                         "    shared avg(number a, number b) : number prod\n" +
-                         "        a = a + b\n" +
-                         "        b = a / 2\n" +
-                         "        prod = b\n" +
-                         "        \n" +
-                         "    shared start()\n" +
-                         "        number a\n" +
-                         "        a = 10" +
-                         "        number b\n" +
-                         "        number c\n" +
-                         "        c = avg(a, b)\n" +
-                         "        console.write(c)\n";
+    public void functionShouldNotMutate_outsidePrimitiveVariables() {
+        String program = """
+                class Mutate
+                    shared messUpNums(number a, number b) : number mean
+                        a = a + b
+                        b = a / 2
+                        mean = b
+                
+                    shared messUpString(string in) : string out
+                        in = in + " messified"
+                        out = in
+                
+                    shared messUpChar(character in) : character out
+                        in = 'b'
+                        out = in
+                        
+                
+                    shared start()
+                        number a
+                        number b
+                        number c
+                        a = 10
+                        b = 20
+                        c = Mutate.messUpNums(a, b)
+                        console.write(a)
+                        console.write(b)
+                        console.write(c)
+                
+                        string s
+                        s = "foobar"
+                        console.write(Mutate.messUpString(s))
+                        console.write(s)
+                        
+                        character char
+                        char = 'a'
+                        console.write(Mutate.messUpChar(char))
+                        console.write(char)
+                """;
 
+        var tranNode = run(program);
+        var c = getConsole(tranNode);
+        Assertions.assertEquals(7,c.size());
+        Assertions.assertEquals("10.0",c.get(0));
+        Assertions.assertEquals("20.0",c.get(1));
+        Assertions.assertEquals("15.0",c.get(2));
+        Assertions.assertEquals("foobar messified",c.get(3));
+        Assertions.assertEquals("foobar",c.get(4));
+        Assertions.assertEquals("b",c.get(5));
+        Assertions.assertEquals("a",c.get(6));
     }
 
+    @Test
     public void throwExceptionAt_ReturnTypeMismatch() {
         String program = "class Matrix\n" +
                          "    number numRows\n" +
@@ -195,11 +230,11 @@ public class InterpreterTests {
                          "    number numColumns\n" +
                          "        accessor:\n" +
                          "            value = numColumns\n" +
-                         "            \n" +
+                         "\n" +
                          "    shared getShape() : number m, number n\n" +
                          "        m = numRows\n" +
                          "        n = numColumns" +
-                         "        \n" +
+                         "\n" +
                          "    shared start()\n" +
                          "        string m\n" + // These should be numbers
                          "        string n\n" +
@@ -207,16 +242,17 @@ public class InterpreterTests {
         Assertions.assertThrows(RuntimeException.class, () -> run(program));
     }
 
+    @Test
     public void timesIteratorShouldWork() {
         String program = """
                 class Counter implements iterator
                 
                 class CountToTwenty
-                 
+                
                     shared start()
                         number n
                         n = 100
-                        Counter c 
+                        Counter c
                         c = n.times()
                         loop l = c
                             console.write(c + " times!")
@@ -232,6 +268,7 @@ public class InterpreterTests {
         }
     }
 
+    @Test
     public void throwExceptionAt_nonIteratorAndNonBooleanDatumInLoop() {
         String program = """
             class Tran
@@ -248,8 +285,10 @@ public class InterpreterTests {
                         counter = i
             """;
 
+        Assertions.assertThrows(RuntimeException.class, () -> run(program));
     }
 
+    @Test
     public void throwExceptionAt_nonIteratorObjectInIteratorLoop() {
         String program = """
                 class Tran
@@ -266,9 +305,11 @@ public class InterpreterTests {
                         loop i = tron
                             counter = i     
                 """;
+        Assertions.assertThrows(RuntimeException.class, () -> run(program));
     }
 
-    public void noCallerMethod_fromInsideSharedMethod_shouldSomething() {
+    @Test
+    public void throwExceptionAt_noCallerMethod_fromInsideSharedMethod() {
         String program = """
                 class Tran
                 
@@ -279,5 +320,58 @@ public class InterpreterTests {
                         awake()
                         console.write("is false\\n")
                 """;
+        Assertions.assertThrows(RuntimeException.class, () -> run(program));
+    }
+
+    @Test
+    public void successfullyInterpret_InteratorClass() {
+        String program = """
+                class Interator implements iterator
+                    number max
+                    number cur
+                    
+                    construct(number int)
+                        max = int
+                        cur = 1
+                    
+                    isAtEnd() : boolean b
+                        if cur == max
+                            b = true
+                        else
+                            b = false
+                    
+                    getNext() : boolean b, number i
+                        b = isAtEnd()
+                        if not b
+                            i = cur
+                            cur = cur + 1
+                        else
+                            i = -1
+                
+                class TestInterator
+                    shared start()
+                        Interator inter = new Interator(42)
+                        loop i = inter
+                            console.write(i)
+                        loop j = 42.times()
+                            console.write(j)
+                """;
+        var tranNode = run(program);
+        // AST assertions
+        Assertions.assertEquals(2,tranNode.Classes.size());
+        Assertions.assertEquals("Interator", tranNode.Classes.get(0).name);
+        Assertions.assertEquals(2, tranNode.Classes.get(0).members.size());
+        Assertions.assertEquals(1, tranNode.Classes.get(0).constructors.size());
+        Assertions.assertEquals(2, tranNode.Classes.get(0).methods.size());
+        Assertions.assertEquals("TestInterator", tranNode.Classes.get(1).name);
+        Assertions.assertEquals(0, tranNode.Classes.get(1).members.size());
+        Assertions.assertEquals(0, tranNode.Classes.get(1).constructors.size());
+        Assertions.assertEquals(1, tranNode.Classes.get(1).methods.size());
+        // Console assertions
+        var c = getConsole(tranNode);
+        Assertions.assertEquals(84, c.size());
+        for (int i = 0; i < 84; i++) {
+            Assertions.assertEquals(String.valueOf(i % 42), c.get(i));
+        }
     }
 }

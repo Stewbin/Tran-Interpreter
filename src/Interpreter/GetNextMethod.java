@@ -9,15 +9,15 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.IntStream;
 
-public class GetNext extends BuiltInMethodDeclarationNode {
+public class GetNextMethod extends BuiltInMethodDeclarationNode {
     private final int[] nums;
     private int currPos;
     private int currVal;
 
-    public GetNext(int n) {
+    public GetNextMethod(int n) {
         super();
-        this.nums = IntStream.rangeClosed(0, n).toArray();
-        currPos = 0;
+        this.nums = IntStream.rangeClosed(1, n).toArray();
+        currPos = 1;
         currVal = nums[0];
     }
 

@@ -119,13 +119,13 @@ public class Parser {
         var varDeclareNode = new VariableDeclarationNode();
         // Type
         tokenManager.matchAndRemove(Token.TokenTypes.WORD).ifPresent(typeToken -> varDeclareNode.type = typeToken.getValue());
-        // Name
+        // Name(s)
         tokenManager.matchAndRemove(Token.TokenTypes.WORD).ifPresent(nameToken -> varDeclareNode.name = nameToken.getValue());
 
         return Optional.of(varDeclareNode);
     }
 
-    // VariableDeclarations = [VariableDeclaration] | VariableDeclaration { "," VariableDeclaration }
+    // VariableDeclarations = [VariableDeclaration] | Identifier { "," Identifier }
     private Optional<List<VariableDeclarationNode>> parseVariableDeclarations() throws SyntaxErrorException {
         List<VariableDeclarationNode> variableDeclarations = new LinkedList<>();
 
@@ -136,10 +136,8 @@ public class Parser {
 
         // > 1 Parameters need to be separated by Commas
         while (tokenManager.matchAndRemove(Token.TokenTypes.COMMA).isPresent()) {
-            variableDeclarations.add(
-                    parseVariableDeclaration()
-                            .orElseThrow(() -> new SyntaxErrorException("Parameter expected after Comma", tokenManager.getCurrentLine(), tokenManager.getCurrentColumnNumber()))
-            );
+            variableDeclarations.add(parseVariableDeclaration()
+                            .orElseThrow(() -> new SyntaxErrorException("Parameter expected after Comma", tokenManager.getCurrentLine(), tokenManager.getCurrentColumnNumber())));
         }
         return Optional.of(variableDeclarations);
     }
@@ -195,8 +193,13 @@ public class Parser {
         requireNewLine();
 
         // Indent
-        if (tokenManager.matchAndRemove(Token.TokenTypes.INDENT).isEmpty())
+        if (tokenManager.matchAndRemove(Token.TokenTypes.INDENT).isEmpty()) {
+            var nextToke = tokenManager.peek(0).map(Token::getType);
+            // Case: Empty class
+            if (nextToke.isEmpty() || nextToke.get() == Token.TokenTypes.CLASS || nextToke.get() == Token.TokenTypes.INTERFACE)
+                return Optional.of(classNode);
             throw new SyntaxErrorException("Indent Expected", tokenManager.getCurrentLine(), tokenManager.getCurrentColumnNumber());
+        }
 
         // Parse class-body
         // {(Constructor NEWLINE) | (MethodDeclaration NEWLINE) | (Member NEWLINE)}
@@ -438,6 +441,8 @@ public class Parser {
             loopNode.assignment = parseVariableReference();
             // Consume "="
             tokenManager.matchAndRemove(Token.TokenTypes.ASSIGN);
+        } else {
+            loopNode.assignment = Optional.empty(); // LoopNode's `assignment` field will be null otherwise
         }
 
         // BoolExpTerm

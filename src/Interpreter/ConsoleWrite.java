@@ -8,6 +8,15 @@ import java.util.List;
 
 public class ConsoleWrite extends BuiltInMethodDeclarationNode {
     public LinkedList<String> console = new LinkedList<>();
+
+    public ConsoleWrite() {
+//        super();
+        super.isVariadic = true;
+        super.isPrivate = false;
+        super.isShared = true;
+        super.name = "write";
+    }
+
     @Override
     public List<InterpreterDataType> Execute(List<InterpreterDataType> params) {
         StringBuilder sb = new StringBuilder();
