@@ -149,8 +149,7 @@ public class Interpreter {
         } else if (caller instanceof NumberIDT callingNumber) {
             if (!mc.methodName.equals("times")) // `times` is the only built-in method of all <Number>'s
                 throw new RuntimeException("Method %s not found for type <Number> ".formatted(mc.methodName));
-            parameters.add(callingNumber);
-            return interpretMethodCall(Optional.empty(), new CreateInteratorMethodDeclaration(), parameters);
+            return interpretMethodCall(Optional.empty(), new CreateInteratorMethodDeclaration(callingNumber), parameters);
         } else {
             throw new RuntimeException("Method %s not found in %s".formatted(mc.methodName, mc.objectName.get()));
         }
