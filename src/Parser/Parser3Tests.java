@@ -33,7 +33,7 @@ public class Parser3Tests
         Assertions.assertEquals(3, myMethod.statements.size());
 
         Assertions.assertEquals("a = b\n", myMethod.statements.get(0).toString());
-        Assertions.assertEquals("b = a\n", ((AssignmentNode)myMethod.statements.get(1)).toString());
+        Assertions.assertEquals("b = a\n", myMethod.statements.get(1).toString());
         Assertions.assertInstanceOf(AssignmentNode.class, myMethod.statements.get(2));
     }
 
@@ -55,10 +55,10 @@ public class Parser3Tests
         Assertions.assertEquals(1, t.Classes.size());
         var myClass = t.Classes.getFirst();
         Assertions.assertEquals(1, myClass.methods.size());
-        var myMethod = myClass.methods.get(0);
+        var myMethod = myClass.methods.getFirst();
 
-        Assertions.assertEquals("b", ((VariableReferenceNode)((AssignmentNode)myMethod.statements.get(1)).target).toString());
-        Assertions.assertEquals("avg", ((VariableReferenceNode)((AssignmentNode)myMethod.statements.get(2)).target).toString());
+        Assertions.assertEquals("b", ((AssignmentNode)myMethod.statements.get(1)).target.toString());
+        Assertions.assertEquals("avg", ((AssignmentNode)myMethod.statements.get(2)).target.toString());
 
         Assertions.assertEquals("[number a, number b, number avg]", ((myMethod.returns)).toString());
 
@@ -89,8 +89,8 @@ public class Parser3Tests
         Assertions.assertEquals("number avg", myMethod.locals.get(2).toString());
 
         Assertions.assertEquals(2, myMethod.statements.size());
-        Assertions.assertEquals("a = b\n", (((AssignmentNode) myMethod.statements.get(0)).toString()));
-        Assertions.assertEquals("b = a\n", (((AssignmentNode) myMethod.statements.get(1)).toString()));
+        Assertions.assertEquals("a = b\n", (myMethod.statements.get(0).toString()));
+        Assertions.assertEquals("b = a\n", (myMethod.statements.get(1).toString()));
     }
 
 
@@ -152,20 +152,6 @@ public class Parser3Tests
         return tran;
     }
 
-    private void whatDoesAMethodCallStatementNodeLookLike() {
-        var methodCall = new MethodCallStatementNode();
-
-        methodCall.methodName = "myMethod";
-        methodCall.objectName = Optional.empty();
-        methodCall.parameters = new LinkedList<>();
-
-        var retRef = new VariableReferenceNode();
-        retRef.name = "result";
-        methodCall.returnValues = List.of(retRef);
-
-        System.out.println(methodCall);
-    }
-
     @Test
     public void statementsOfAllTypes_shouldParse() throws Exception {
         var t = LexAndParse(
@@ -188,7 +174,7 @@ public class Parser3Tests
         Assertions.assertEquals("number minusS", sqrt.returns.getLast().toString());
         Assertions.assertEquals(3, sqrt.statements.size());
         Assertions.assertEquals(0, sqrt.locals.size());
-        Assertions.assertEquals("if (condition)\nnull\n", sqrt.statements.get(0).toString());
+        Assertions.assertEquals("if (condition)\n[]\n", sqrt.statements.get(0).toString());
         Assertions.assertEquals("loop l = condition\n", sqrt.statements.get(1).toString());
         Assertions.assertEquals("s = l + 467.0 \n", sqrt.statements.get(2).toString());
     }
@@ -253,7 +239,7 @@ public class Parser3Tests
         Assertions.assertEquals(15, stmnts.size());
         stmnts.forEach(s -> {
             Assertions.assertInstanceOf(IfNode.class, s);
-            Assertions.assertNull(((IfNode) s).statements);
+            Assertions.assertTrue(((IfNode) s).statements.isEmpty());
             Assertions.assertEquals(Optional.empty(), ((IfNode) s).elseStatement);
         });
 

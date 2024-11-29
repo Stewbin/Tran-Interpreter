@@ -206,21 +206,31 @@ public class Parser4Tests {
     @Test
     public void excessiveWhiteSpaceBetweenMembers_shouldParseFine() throws Exception {
         var t = LexAndParse(
-                      "class Tran\n" +
-                            "    \n" +
-                            "    \n" +
-                            "    string firstName\n" +
-                            "        \n" +
-                            "        \n" +
-                            "        mutator:\n" +
-                            "            \n" +
-                            "            \n" +
-                            "            firstName = value + \" is dumb!\"\n" +
-                            "        \n" +
-                            "        accessor:\n");
+                """
+                        class Tran
+                           \s
+                           \s
+                            string firstName
+                               \s
+                               \s
+                                mutator:
+                                   \s
+                                   \s
+                                    firstName = value + " is dumb!"
+                               \s
+                                accessor:
+                        
+                        
+                            doSomething()
+                                if cond
+                                
+                                    console.write("I need help")
+                                else 
+                                
+                                    console.write("I don't need help")
+                        """);
         var tran = t.Classes.getFirst();
         Assertions.assertEquals(1, tran.members.size());
-        Assertions.assertEquals(0, tran.methods.size());
         Assertions.assertEquals(0, tran.constructors.size());
 
         var firstName = tran.members.getFirst();
@@ -228,5 +238,52 @@ public class Parser4Tests {
         Assertions.assertTrue(firstName.mutator.isPresent());
         Assertions.assertEquals(1, firstName.mutator.get().size());
         Assertions.assertTrue(firstName.accessor.isEmpty());
+
+        Assertions.assertEquals(1, tran.methods.size());
+        var doSomething = tran.methods.getFirst();
+        Assertions.assertEquals(1, doSomething.statements.size());
+        Assertions.assertInstanceOf(IfNode.class, doSomething.statements.getFirst());
+        Assertions.assertInstanceOf(VariableReferenceNode.class, ((IfNode) doSomething.statements.getFirst()).condition);
+        Assertions.assertEquals(1, ((IfNode) doSomething.statements.getFirst()).statements.size());
+        Assertions.assertTrue(((IfNode) doSomething.statements.getFirst()).elseStatement.isPresent());
+        Assertions.assertEquals(1, ((IfNode) doSomething.statements.getFirst()).elseStatement.get().statements.size());
+    }
+
+    @Test
+    public void bodilessEverything_ShouldParse() throws Exception {
+        var t = LexAndParse("""
+                class Empty
+                
+                interface Void
+                
+                class Tran
+                    
+                    construct()
+                    
+                class Tron
+                    
+                    string tronName
+                    
+                class Train
+                    
+                    choochoo()
+                    
+                    construct()
+                    
+                """);
+
+        Assertions.assertEquals(4, t.Classes.size());
+        Assertions.assertEquals("Empty", t.Classes.getFirst().name);
+        Assertions.assertEquals("Tran", t.Classes.get(1).name);
+        Assertions.assertEquals(1,t.Classes.get(1).constructors.size());
+        Assertions.assertEquals("Tron", t.Classes.get(2).name);
+        Assertions.assertEquals(1,t.Classes.get(2).members.size());
+        Assertions.assertEquals("Train", t.Classes.get(3).name);
+        Assertions.assertEquals(1, t.Classes.get(3).methods.size());
+        Assertions.assertEquals("choochoo", t.Classes.get(3).methods.getFirst().name);
+        Assertions.assertEquals(1,t.Classes.get(3).constructors.size());
+
+        Assertions.assertEquals(1, t.Interfaces.size());
+        Assertions.assertEquals("Void", t.Interfaces.getFirst().name);
     }
 }

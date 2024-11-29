@@ -1,12 +1,12 @@
 package AST;
 
-import javax.swing.plaf.nimbus.State;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
 public class IfNode implements StatementNode {
     public ExpressionNode condition;
-    public List<StatementNode> statements;
+    public List<StatementNode> statements = new ArrayList<>();
     public Optional<ElseNode> elseStatement;
 
     @Override

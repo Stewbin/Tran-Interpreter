@@ -254,17 +254,17 @@ public class InterpreterTests {
                         n = 100
                         Counter c
                         c = n.times()
-                        loop l = c
-                            console.write(c + " times!")
+                        loop j = c
+                            console.write(j, " times!")
                 """;
         var tranNode = run(program);
 
 
         // Inspect console
         var c = getConsole(tranNode);
-        Assertions.assertEquals(101,c.size());
+        Assertions.assertEquals(100,c.size());
         for (int i = 0; i < c.size(); i++) {
-            Assertions.assertEquals(i + " times!", c.get(i));
+            Assertions.assertEquals(((float) i+1) + " times!", c.get(i));
         }
     }
 
@@ -324,46 +324,45 @@ public class InterpreterTests {
     }
 
     @Test
-    public void successfullyInterpret_InteratorClass() {
+    public void successfullyInterpret_CustomNumberIteratorClass() {
         String program = """
-                class Interator implements iterator
+                class NumIterator implements iterator
                     number max
                     number cur
                     
-                    construct(number int)
-                        max = int
+                    construct(number n)
+                        max = n
                         cur = 1
                     
                     isAtEnd() : boolean b
-                        if cur == max
-                            b = true
-                        else
-                            b = false
+                        b = cur > max
                     
                     getNext() : boolean b, number i
-                        b = isAtEnd()
-                        if not b
+                        b = not isAtEnd()
+                        if b
                             i = cur
                             cur = cur + 1
                         else
-                            i = -1
+                            i = 0
                 
-                class TestInterator
+                class TestNumIterator
                     shared start()
-                        Interator inter = new Interator(42)
+                        NumIterator inter
+                        inter = new NumIterator(42)
                         loop i = inter
-                            console.write(i)
-                        loop j = 42.times()
-                            console.write(j)
+                            console.write("i ", i)
+                        number x 
+                        x = 42
+                        loop j = x.times()
+                            console.write("j ", j)
                 """;
         var tranNode = run(program);
         // AST assertions
-        Assertions.assertEquals(2,tranNode.Classes.size());
-        Assertions.assertEquals("Interator", tranNode.Classes.get(0).name);
-        Assertions.assertEquals(2, tranNode.Classes.get(0).members.size());
+        Assertions.assertEquals("NumIterator", tranNode.Classes.getFirst().name);
+        Assertions.assertEquals(2, tranNode.Classes.getFirst().members.size());
         Assertions.assertEquals(1, tranNode.Classes.get(0).constructors.size());
         Assertions.assertEquals(2, tranNode.Classes.get(0).methods.size());
-        Assertions.assertEquals("TestInterator", tranNode.Classes.get(1).name);
+        Assertions.assertEquals("TestNumIterator", tranNode.Classes.get(1).name);
         Assertions.assertEquals(0, tranNode.Classes.get(1).members.size());
         Assertions.assertEquals(0, tranNode.Classes.get(1).constructors.size());
         Assertions.assertEquals(1, tranNode.Classes.get(1).methods.size());
@@ -371,7 +370,150 @@ public class InterpreterTests {
         var c = getConsole(tranNode);
         Assertions.assertEquals(84, c.size());
         for (int i = 0; i < 84; i++) {
-            Assertions.assertEquals(String.valueOf(i % 42), c.get(i));
+            Assertions.assertEquals((i < 42 ? "i " : "j ") + (float)(i % 42 + 1), c.get(i));
+        }
+    }
+
+    @Test
+    public void allTypesOfOperations_shouldWork() {
+        String program = """
+                class Tran
+                    shared start()
+                        number res
+                        res = 1 + 2 * 3 - 4 / ((5 / 10) * 3 - 2)
+                        console.write(res)
+                        number resTwo
+                        resTwo = (1 + 42 - 8) / 7
+                        console.write(resTwo)
+                        
+                        string word
+                        word = "hello"
+                        word = word + ' '
+                        word = word + 'w'
+                        word = word + 'o'
+                        word = word + 'r'
+                        word = word + 'l'
+                        word = word + 'd'
+                        console.write(word)
+                        
+                        boolean boolA
+                        boolA = 5 > 9 {-> false}
+                        console.write(boolA)
+                        boolean boolB
+                        boolB = true
+                        console.write(boolB)
+                        boolean boolC
+                        boolC = (not (boolA and boolB)) or boolA
+                        console.write(boolC)
+                """;
+        var tranNode = run(program);
+        var c = getConsole(tranNode);
+        Assertions.assertEquals(6, c.size());
+        Assertions.assertEquals("15.0",c.get(0));
+        Assertions.assertEquals("5.0",c.get(1));
+        Assertions.assertEquals("hello world",c.get(2));
+        Assertions.assertEquals("false", c.get(3));
+        Assertions.assertEquals("true", c.get(4));
+        Assertions.assertEquals("true", c.get(5));
+    }
+
+    @Test
+    public void throwExceptionAt_instantiatingNonExistentClass() {
+        String program = """
+                class Tran
+                    shared start()
+                        Tron tron
+                        tron = new Tron()
+                """;
+//        run(program);
+        Assertions.assertThrows(RuntimeException.class, () -> run(program));
+    }
+
+    @Test
+    public void throwExceptionAt_incorrectParameterTypes() {
+        String program = """
+                class Penguin
+                
+                    private eatFish(number numFish)
+                        console.write("I ate ", numFish, " fishes")
+                
+                    shared start()
+                        Penguin penging = new Penguin()
+                        penging.eatFish("one hundred")
+                """;
+        Assertions.assertThrows(RuntimeException.class, () -> run(program));
+    }
+
+    @Test
+    public void passPolymorphicParameterToMethod() {
+        String program = """
+                interface Bird
+                    peck()
+                
+                class Penguin implements Bird
+                    
+                    string trueName
+                    
+                    construct(string name)
+                        trueName = name
+                        
+                    peck()
+                        console.write(trueName, " challenges you to a duel!")
+                    
+                    startBirdDuel(Bird opponent)
+                        peck()
+                        opponent.peck()
+                    
+                    shared start()
+                        Penguin penguinA
+                        penguinA = new Penguin("Benedick Penging")
+                        Penguin penguinB
+                        penguinB = new Penguin("Peggy Pedguin")
+                        
+                        penguinA.startBirdDuel(penguinB)
+                """;
+
+        var tranNode = run(program);
+        var c = getConsole(tranNode);
+        Assertions.assertEquals("Benedick Penging challenges you to a duel!", c.get(0));
+        Assertions.assertEquals("Peggy Pedguin challenges you to a duel!", c.get(1));
+    }
+
+    @Test
+    public void successfullyInterpret_LinkedListClass() {
+        String program = """
+                interface List
+                
+                class Empty implements List
+                    construct()
+                
+                class Pair implements List
+                    number val
+                    List next
+                    
+                    construct(number v, List n)
+                        val = v
+                        next = n
+                        
+                    get(number i) : number value
+                        if i == 0
+                            value = val
+                        else
+                            value = next.get(i-1)
+                
+                class TestList                    
+                    shared start()
+                        List linkedList
+                        linkedList = new Pair(0, new Pair(1, new Pair(2, new Pair(3, new Empty()))))
+                        number x
+                        x = 4
+                        loop y = x.times()
+                            console.write(linkedList.get(y-1))
+                """;
+        var tranNode = run(program);
+        var c = getConsole(tranNode);
+        for (int i = 0; i < 4; i++) {
+            Assertions.assertEquals("" + (float)i, c.get(i));
         }
     }
 }

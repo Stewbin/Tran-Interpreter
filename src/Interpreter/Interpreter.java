@@ -38,8 +38,8 @@ public class Interpreter {
         hasNext.name = "hasNext";
         getNext.returns.add(hasNext);
         var nextItem = new VariableDeclarationNode();
-        nextItem.name = "nextItem";
         nextItem.type = "undefined";
+        nextItem.name = "nextItem";
         getNext.returns.add(nextItem);
         return iterator;
     }
@@ -111,7 +111,7 @@ public class Interpreter {
                 mDec = getMethodFromObject(object.get(), mc, parameters);
                 return interpretMethodCall(object, mDec, parameters);
             }
-            throw new RuntimeException("Calling object or class not found");
+            throw new RuntimeException("Calling object or class not found for method " + mc);
         }
         // Case: `mc` has apparent caller
         var maybeClass = getClassByName(mc.objectName.get());
@@ -149,7 +149,8 @@ public class Interpreter {
         } else if (caller instanceof NumberIDT callingNumber) {
             if (!mc.methodName.equals("times")) // `times` is the only built-in method of all <Number>'s
                 throw new RuntimeException("Method %s not found for type <Number> ".formatted(mc.methodName));
-            return interpretMethodCall(Optional.empty(), new CreateTimesIteratorMethod(callingNumber), parameters);
+            parameters.add(callingNumber);
+            return interpretMethodCall(Optional.empty(), new CreateInteratorMethodDeclaration(), parameters);
         } else {
             throw new RuntimeException("Method %s not found in %s".formatted(mc.methodName, mc.objectName.get()));
         }
@@ -246,7 +247,7 @@ public class Interpreter {
         if (values.size() != c.parameters.size())
             throw new RuntimeException("Unexpected number of parameters");
         // Create local variables hashmap
-        var locals = new HashMap<String, InterpreterDataType>(object.members); // Add members of 'object' to locals-hashmap
+        var locals = new HashMap<>(object.members); // Add members of 'object' to locals-hashmap
         // Add local variables of 'c' to locals-hashmap
         for (var localVar : c.locals) {
             if (locals.containsKey(localVar.name))
@@ -303,52 +304,7 @@ public class Interpreter {
                         .range(0, methodCall.returnValues.size())
                         .forEach( i -> locals.put(methodCall.returnValues.get(i).name, retVals.get(i)));
             } else if (statement instanceof LoopNode loop) {
-                Optional<MethodDeclarationNode> getNextMethod = Optional.empty();
-                var condition = evaluate(locals, object, loop.expression);
-                // Dereference 'condition'
-                while(condition instanceof ReferenceIDT reference) {
-                    condition = reference.refersTo.orElseThrow(() -> new RuntimeException("<Null> Reference Exception"));
-                }
-                if (condition instanceof ObjectIDT iterator) {
-                    // Check if iterator implements 'iterator' interface
-                    if (!typeMatchToIDT("iterator", iterator))
-                        throw new RuntimeException("Object implementing 'iterator' expected");
-                    // Create node that matches the 'getNext' method we're looking for
-                    var getNextNode = new MethodCallStatementNode();
-                    getNextNode.methodName = "getNext";
-                    getNextNode.parameters = new ArrayList<>(0); // Empty parameters
-                    getNextNode.returnValues = new ArrayList<>(3);
-                    // Look for declaration that matches that node
-                    getNextMethod = Optional.ofNullable(getMethodFromObject(iterator, getNextNode, new LinkedList<>()));
-                } else if (!(condition instanceof BooleanIDT)) {
-                    throw new RuntimeException("Iterator or Boolean expected as condition");
-                }
-
-                // Add loop "variable of iteration" to locals
-                if (loop.assignment.isPresent()) {
-                    var returnType = getNextMethod.map(m -> m.returns.get(1).type).orElse("boolean");
-                    locals.put(loop.assignment.get().name, instantiate(returnType));
-                }
-
-                while (true) {
-                    var returnedValues = getNextMethod.map(getNext -> interpretMethodCall(object, getNext, new LinkedList<>()));
-                    // Determine if we should loop
-                    boolean shouldContinue = returnedValues.isPresent()
-                            ? ((BooleanIDT) returnedValues.get().getFirst()).Value // Condition is an iterator
-                            : ((BooleanIDT) evaluate(locals, object, loop.expression)).Value; // Condition is a boolean
-                    if (!shouldContinue)
-                        break;
-                    // Check if this loop is being assigned to a variable
-                    if (loop.assignment.isPresent()) {
-                        // Value of loop expression gets assigned
-                        var loopExpVal = returnedValues.isPresent()
-                                ? returnedValues.get().getFirst()
-                                : new BooleanIDT(true); // The boolean expression is always true if execution reached here
-                        findVariable(loop.assignment.get().name, locals, object).Assign(loopExpVal);
-                    }
-                    // Interpret loop body
-                    interpretStatementBlock(object, loop.statements, locals);
-                }
+                interpretLoopStatement(object, locals, loop);
             } else if (statement instanceof IfNode ifStatement) {
                 var condition = evaluate(locals, object, ifStatement.condition);
                 if (condition instanceof BooleanIDT boolExp) {
@@ -360,6 +316,61 @@ public class Interpreter {
                 }
                 throw new RuntimeException("Expected boolean expression");
             }
+        }
+    }
+
+    private void interpretLoopStatement(Optional<ObjectIDT> object, HashMap<String, InterpreterDataType> locals, LoopNode loop) {
+        Optional<MethodDeclarationNode> getNextMethod = Optional.empty();
+        Optional<ObjectIDT> iterator = Optional.empty();
+        var condition = evaluate(locals, object, loop.expression);
+        // Dereference 'condition'
+        while(condition instanceof ReferenceIDT reference) {
+            condition = reference.refersTo.orElseThrow(() -> new RuntimeException("<Null> Reference Exception"));
+        }
+        if (condition instanceof ObjectIDT condObj) {
+            // Check if objectIDT implements <iterator> interface
+            if (!typeMatchToIDT("iterator", condObj))
+                throw new RuntimeException("Object implementing <iterator> expected");
+            iterator = Optional.of(condObj);
+
+            // Create node that matches the 'getNext' method we're looking for
+            var getNextNode = new MethodCallStatementNode();
+            getNextNode.methodName = "getNext";
+            getNextNode.parameters = new ArrayList<>(0); // Empty parameters
+            getNextNode.returnValues = new ArrayList<>(2); // 2 Return values
+            // Look for declaration that matches that node
+            getNextMethod = Optional.ofNullable(getMethodFromObject(condObj, getNextNode, new ArrayList<>()));
+        } else if (!(condition instanceof BooleanIDT)) {
+            throw new RuntimeException("Iterator or Boolean expected as condition");
+        }
+
+        // Add loop "variable of iteration" to locals
+        if (loop.assignment.isPresent()) {
+            var returnType = getNextMethod.map(m -> m.returns.get(1).type).orElse("boolean");
+            locals.put(loop.assignment.get().name, instantiate(returnType));
+        }
+
+        while (true) {
+            var finalIterator = iterator;
+            var returnedValues = getNextMethod.map(getNext -> interpretMethodCall(finalIterator, getNext, new LinkedList<>()));
+            // Determine if we should loop
+            boolean shouldContinue = returnedValues.isPresent()
+                    ? ((BooleanIDT) returnedValues.get().getFirst()).Value // Condition is an iterator
+                    : ((BooleanIDT) evaluate(locals, object, loop.expression)).Value; // Condition is a boolean
+            if (!shouldContinue)
+                break;
+            // Check if this loop is being assigned to a variable
+            if (loop.assignment.isPresent()) {
+                // Value of loop expression gets assigned
+                InterpreterDataType loopExpVal;
+                if (returnedValues.isPresent())
+                    loopExpVal = returnedValues.get().get(1);
+                else
+                    loopExpVal = new BooleanIDT(true); // The boolean expression is always true if execution reached here
+                findVariable(loop.assignment.get().name, locals, object).Assign(loopExpVal);
+            }
+            // Interpret loop body
+            interpretStatementBlock(object, loop.statements, locals);
         }
     }
 
@@ -386,14 +397,17 @@ public class Interpreter {
         if (expression instanceof BooleanLiteralNode booleanLiteral) {
             return new BooleanIDT(booleanLiteral.value);
         // Boolean Expressions (BooleanOpNode)
-        } else if (expression instanceof BooleanOpNode booleanOpNode) {
-            boolean l = ((BooleanIDT) evaluate(locals, object, booleanOpNode.left)).Value;
-            boolean r = ((BooleanIDT) evaluate(locals, object, booleanOpNode.right)).Value;
+        } else if (expression instanceof BooleanOpNode boolOpNode) {
+            boolean l = ((BooleanIDT) evaluate(locals, object, boolOpNode.left)).Value;
+            boolean r = ((BooleanIDT) evaluate(locals, object, boolOpNode.right)).Value;
 
-            return new BooleanIDT(switch (booleanOpNode.op) {
+            return new BooleanIDT(switch (boolOpNode.op) {
                 case and -> l && r;
                 case or -> l || r;
             });
+        } else if (expression instanceof NotOpNode negBoolOpNode) {
+            var val = ((BooleanIDT) evaluate(locals, object, negBoolOpNode.left)).Value;
+            return new BooleanIDT(!val);
         // Comparisons (CompareNode)
         } else if (expression instanceof CompareNode compareNode) {
             var l = evaluate(locals, object, compareNode.left);
@@ -429,24 +443,24 @@ public class Interpreter {
         var l = evaluate(locals, object, mathOpNode.left);
         var r = evaluate(locals, object, mathOpNode.right);
         // If both l & r are numbers, do math operations
-        if (l instanceof NumberIDT leftNum && r instanceof NumberIDT rightNum) {
-            return new NumberIDT(switch (mathOpNode.op) {
+        return switch (l) {
+            case NumberIDT leftNum when r instanceof NumberIDT rightNum -> new NumberIDT(switch (mathOpNode.op) {
                 case add -> leftNum.Value + rightNum.Value;
                 case subtract -> leftNum.Value - rightNum.Value;
                 case multiply -> leftNum.Value * rightNum.Value;
                 case divide -> leftNum.Value / rightNum.Value;
                 case modulo -> leftNum.Value % rightNum.Value;
             });
-        // If l & r are both strings or chars, do string operations
-        } else if (l instanceof StringIDT leftStr && r instanceof StringIDT rightStr) {
-            return new StringIDT(leftStr.Value + rightStr.Value);
-        } else if (l instanceof StringIDT leftStr && r instanceof CharIDT rightChar) {
-            return new StringIDT(leftStr.Value + rightChar.Value);
-        } else if (l instanceof CharIDT leftChar && r instanceof StringIDT rightStr) {
-            return new StringIDT(leftChar.Value + rightStr.Value);
-        } else {
-            throw new RuntimeException(String.format("Undefined operation: '%s %s %s'", l, mathOpNode.op, r));
-        }
+            // If l & r are both strings or chars, do string operations
+            case StringIDT leftStr when r instanceof StringIDT rightStr ->
+                    new StringIDT(leftStr.Value + rightStr.Value);
+            case StringIDT leftStr when r instanceof CharIDT rightChar ->
+                    new StringIDT(leftStr.Value + rightChar.Value);
+            case CharIDT leftChar when r instanceof StringIDT rightStr ->
+                    new StringIDT(leftChar.Value + rightStr.Value);
+            case null, default ->
+                    throw new RuntimeException(String.format("Undefined operation: '%s %s %s'", l, mathOpNode.op, r));
+        };
     }
 
     private ObjectIDT evaluateObjectInstantiation(HashMap<String, InterpreterDataType> locals, Optional<ObjectIDT> object, NewNode constructExp) {
@@ -463,7 +477,7 @@ public class Interpreter {
             instance.members.put(classField.name, instantiate(classField.type));
         }
         // Run constructor with allocated object
-        findConstructorAndRunIt(object, locals, mc, instance); // Fields oof `instance` will be populated
+        findConstructorAndRunIt(object, locals, mc, instance); // Fields of `instance` will be populated
         return instance;
     }
 
@@ -506,18 +520,21 @@ public class Interpreter {
     private boolean doesMatch(MethodDeclarationNode m, MethodCallStatementNode mc, List<InterpreterDataType> parameters) {
         boolean namesMatch = m.name.equals(mc.methodName);
         boolean returnsMatch = mc.returnValues.size() <= m.returns.size();
-        boolean parametersMatch;
+        boolean parametersMatch = false;
         // Check parameters //
         // Skip parameter check for built-in methods
+        ParamCheck:
         if (m instanceof BuiltInMethodDeclarationNode builtInMethod && builtInMethod.isVariadic) {
             parametersMatch = true;
         } else {
-            boolean declaredAndCallMatch = mc.parameters.size() == m.parameters.size();
-            boolean declaredAndArgumentsMatch = m.parameters.size() == parameters.size();
-            boolean typesMatch = IntStream
+            boolean declaredAndCallSizeMatch = mc.parameters.size() == m.parameters.size();
+            boolean declaredAndArgumentsSizeMatch = m.parameters.size() == parameters.size();
+            if (!declaredAndCallSizeMatch || !declaredAndArgumentsSizeMatch)
+                break ParamCheck;
+            // declaredAndCallSizeMatch && declaredAndArgumentsSizeMatch && declaredAndArgumentsTypesMatch
+            parametersMatch = IntStream
                     .range(0, parameters.size())
                     .allMatch(i -> typeMatchToIDT(m.parameters.get(i).type, parameters.get(i)));
-            parametersMatch = declaredAndCallMatch && declaredAndArgumentsMatch && typesMatch;
         }
         return namesMatch && returnsMatch && parametersMatch;
     }

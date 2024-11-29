@@ -53,7 +53,7 @@ public class Parser {
 
         // Indent
         if (tokenManager.matchAndRemove(Token.TokenTypes.INDENT).isEmpty())
-            throw new SyntaxErrorException("Indent Expected", tokenManager.getCurrentLine(), tokenManager.getCurrentColumnNumber());
+            return Optional.of(interfaceNode);
 
         // Method headers
         do {
@@ -207,29 +207,11 @@ public class Parser {
             consumeExcessiveNewLines();
 
             // Constructors
-            var constructor = parseConstructor();
-            if (constructor.isPresent()) {
-                classNode.constructors.add(constructor.get());
-                // Newline needed only if body was not found
-                if (constructor.get().statements.isEmpty())
-                    requireNewLine();
-            }
+            parseConstructor().ifPresent(classNode.constructors::add);
             // Fields
-            var field = parseField();
-            if (field.isPresent()) {
-                classNode.members.add(field.get());
-                // Newline needed only if body was not found
-                if (field.get().mutator.isEmpty() && field.get().accessor.isEmpty())
-                    requireNewLine();
-            }
+            parseField().ifPresent(classNode.members::add);
             // Methods
-            var method = parseMethodDeclaration();
-            if (method.isPresent()) {
-                classNode.methods.add(method.get());
-                // Newline needed only if body was not found
-                if (method.get().statements.isEmpty())
-                    requireNewLine();
-            }
+            parseMethodDeclaration().ifPresent(classNode.methods::add);
 
             if (tokenManager.done())
                 throw new SyntaxErrorException("Dedent expected at end of class", tokenManager.getCurrentLine(), tokenManager.getCurrentColumnNumber());
@@ -336,13 +318,10 @@ public class Parser {
         methodNode.parameters = methodHeader.parameters;
         methodNode.returns = methodHeader.returns;
 
-        // Check if empty body
-        if (tokenManager.nextTwoTokensMatch(Token.TokenTypes.NEWLINE, Token.TokenTypes.INDENT)) {
-            // Newline
-            requireNewLine();
-            // MethodBody
-            parseMethodBody(methodNode.locals, methodNode.statements);
-        }
+        // Newline
+        requireNewLine();
+        // MethodBody
+        parseMethodBody(methodNode.locals, methodNode.statements);
 
         return Optional.of(methodNode);
     }
@@ -387,11 +366,13 @@ public class Parser {
             // Statement
             var statement = parseStatement();
             if (statement.isPresent()) {
+                // Add statement to list
                 statements.add(statement.get());
-                requireNewLine(); // Newline
+                // Newline needed only if statements have no body
+                if (!(statement.get() instanceof IfNode || statement.get() instanceof LoopNode)) {
+                    requireNewLine();
+                }
             }
-
-            consumeExcessiveNewLines();
 
             // If no Dedent found
             if (tokenManager.done())
@@ -434,8 +415,7 @@ public class Parser {
         // "loop" keyword
         if (tokenManager.matchAndRemove(Token.TokenTypes.LOOP).isEmpty()) return Optional.empty();
 
-        // Optional assignment to a variable of type 'loop'
-        // e.g. loop temp = x.times() \n\t{...}
+        // Optional assignment to a variable of type 'loop' e.g. loop temp = x.times() \n\t{...}
         if (tokenManager.nextTwoTokensMatch(Token.TokenTypes.WORD, Token.TokenTypes.ASSIGN)) {
             // VariableReference
             loopNode.assignment = parseVariableReference();
@@ -449,12 +429,10 @@ public class Parser {
         loopNode.expression = parseBoolExpTerm().orElseThrow(() -> new SyntaxErrorException("Boolean Expression Expected after 'loop'", tokenManager.getCurrentLine(), tokenManager.getCurrentColumnNumber()));
 
         // Optional Statement-Body
-        if (tokenManager.nextTwoTokensMatch(Token.TokenTypes.NEWLINE, Token.TokenTypes.INDENT)) {
-            // Consume Newline
-            tokenManager.matchAndRemove(Token.TokenTypes.NEWLINE);
+        if (tokenManager.matchAndRemove(Token.TokenTypes.NEWLINE).isPresent()) {
+            consumeExcessiveNewLines();
             // Body (Statements)
             parseStatementBlock().ifPresent(statements -> loopNode.statements = statements);
-//                .orElseThrow(() -> new Lexer.SyntaxErrorException("Body expected in Loop-statement", tokenManager.getCurrentLine(), tokenManager.getCurrentColumnNumber()));
         }
 
         return Optional.of(loopNode);
@@ -470,10 +448,9 @@ public class Parser {
         ifNode.condition = parseBoolExpTerm().orElseThrow(() -> new SyntaxErrorException("Boolean expression expected after 'if'", tokenManager.getCurrentLine(), tokenManager.getCurrentColumnNumber()));
 
         // Optional Statement-Body
-        if (tokenManager.nextTwoTokensMatch(Token.TokenTypes.NEWLINE, Token.TokenTypes.INDENT)) {
-            // Consume Newline
-            tokenManager.matchAndRemove(Token.TokenTypes.NEWLINE);
-            // Body (Statements)
+        if (tokenManager.matchAndRemove(Token.TokenTypes.NEWLINE).isPresent()) {
+            consumeExcessiveNewLines();
+            // Check for statement-body (Statements)
             parseStatementBlock().ifPresent(statements -> ifNode.statements = statements);
         }
 
@@ -515,14 +492,8 @@ public class Parser {
             if (statement.isPresent()) {
                 // Add statement to list
                 statements.add(statement.get());
-
                 // Newline needed only if statements have no body
-                if (statement.get() instanceof IfNode ifNode) {
-                    if (ifNode.statements.isEmpty()) requireNewLine();
-                } else if (statement.get() instanceof LoopNode loopNode) {
-                    if (loopNode.statements.isEmpty()) requireNewLine();
-                // Only statements w/ bodies are If and Loop
-                } else {
+                if (!(statement.get() instanceof IfNode || statement.get() instanceof LoopNode)) {
                     requireNewLine();
                 }
             }
@@ -591,10 +562,18 @@ public class Parser {
         return parseBoolExpFactor();
     }
 
-    // BoolExpFactor = MethodCallExpression | Comparison | VariableReference | ( "(" BoolExpTerm ")" )
+    // BoolExpFactor = MethodCallExpression | Comparison | VariableReference | "(" BoolExpTerm ")"
     private Optional<? extends ExpressionNode> parseBoolExpFactor() throws SyntaxErrorException {
+
+        // Method Call
+        var methodCall = parseMethodCallExpression();
+        if (methodCall.isPresent()) return methodCall;
+        // Comparison
+        var comparison = parseComparison();
+        if (comparison.isPresent()) return comparison;
         // "(" BoolExpTerm ")"//
-        if (tokenManager.matchAndRemove(Token.TokenTypes.LPAREN).isPresent()) { // Lparen "("
+        // Lparen "("
+        if (tokenManager.matchAndRemove(Token.TokenTypes.LPAREN).isPresent()) {
             // BoolExpTerm
             var boolExpTerm = parseBoolExpTerm();
             // Rparen ")"
@@ -603,12 +582,6 @@ public class Parser {
 
             if (boolExpTerm.isPresent()) return boolExpTerm;
         }
-        // Method Call
-        var methodCall = parseMethodCallExpression();
-        if (methodCall.isPresent()) return methodCall;
-        // Comparison
-        var comparison = parseComparison();
-        if (comparison.isPresent()) return comparison;
         // Variable Reference
         return parseVariableReference();
         // If not BoolExp at all, returns Optional.empty()
@@ -676,7 +649,7 @@ public class Parser {
         // "=" operator
         tokenManager.matchAndRemove(Token.TokenTypes.ASSIGN);
         // Expression
-        assignmentNode.expression = parseExpression().orElseThrow(
+        assignmentNode.expression = parseBoolExpTerm().orElseThrow(
                 () -> new SyntaxErrorException("Expression expected after assignment", tokenManager.getCurrentLine(), tokenManager.getCurrentColumnNumber())
         );
 
@@ -872,7 +845,7 @@ public class Parser {
         // Lparen
         if (tokenManager.matchAndRemove(Token.TokenTypes.LPAREN).isPresent()) {
             // Expression
-            retVal = parseExpression();
+            retVal = parseBoolExpTerm();
             // Rparen
             if (tokenManager.matchAndRemove(Token.TokenTypes.RPAREN).isEmpty())
                 throw new SyntaxErrorException("RPAREN expected", tokenManager.getCurrentLine(), tokenManager.getCurrentColumnNumber());
